@@ -76,7 +76,13 @@
             </div>
 
             <div style="display:grid; grid-template-columns: 1fr 380px; gap:24px;">
-                <div class="glass-card"><h3>Recent In-Patient Activity</h3><div id="receptionSchedule" style="margin-top:24px;"></div></div>
+                <div class="glass-card">
+                    <h3>Recent In-Patient Activity</h3>
+                    <table class="elite-table" style="margin-top:24px;">
+                        <thead><tr><th>Time</th><th>Patient</th><th>Doctor</th><th>Status</th></tr></thead>
+                        <tbody id="receptionSchedule"></tbody>
+                    </table>
+                </div>
                 <div class="glass-card" style="text-align:center;">
                     <h3>Capacity Gauge</h3>
                     <div class="gauge-container" style="margin-top:32px;"><div class="gauge-body"></div></div>
@@ -113,10 +119,48 @@
             </div>
         </div>
 
-        <!-- Others -->
-        <div id="billing" class="tab-content"><h1>Invoicing & Ledger</h1></div>
-        <div id="staff" class="tab-content"><h1>Medical Staff Directory</h1></div>
-        <div id="settings" class="tab-content"><h1>Global Settings</h1></div>
+        <!-- Billing Tab -->
+        <div id="billing" class="tab-content">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">Financial Ledger</h1>
+            <div class="kpi-grid">
+                <div class="kpi-card"><div class="kpi-icon-box" style="background:#ECFDF5; color:#059669;"><i data-lucide="check-circle"></i></div><div><div class="kpi-title">Paid Invoices</div><div class="kpi-value">₹1,84,000</div></div></div>
+                <div class="kpi-card"><div class="kpi-icon-box" style="background:#FEF2F2; color:#DC2626;"><i data-lucide="clock"></i></div><div><div class="kpi-title">Pending Dues</div><div class="kpi-value">₹34,500</div></div></div>
+            </div>
+            <table class="elite-table" style="margin-top:24px;">
+                <thead><tr><th>Invoice ID</th><th>Patient</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
+                <tbody>
+                    <tr><td><b>#INV-8801</b></td><td><b>Johnathan Doe</b></td><td>₹1,250</td><td>May 09, 2025</td><td><span class="status-badge available">Paid</span></td></tr>
+                    <tr><td><b>#INV-8802</b></td><td><b>Sarah Miller</b></td><td>₹4,500</td><td>May 08, 2025</td><td><span class="status-badge pending">Pending</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Staff Tab -->
+        <div id="staff" class="tab-content">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">Medical Staff Directory</h1>
+            <table class="elite-table">
+                <thead><tr><th>Staff Member</th><th>Department</th><th>Role</th><th>Status</th></tr></thead>
+                <tbody>
+                    <tr><td><div style="display:flex; align-items:center; gap:12px;"><div class="p-avatar">RN</div><b>Nurse Rachel Green</b></div></td><td>Emergency</td><td>Senior Nurse</td><td><span class="status-badge available">On Duty</span></td></tr>
+                    <tr><td><div style="display:flex; align-items:center; gap:12px;"><div class="p-avatar" style="background:#FFFBEB; color:#D97706;">TG</div><b>Timothy Gray</b></div></td><td>Admin</td><td>IT Specialist</td><td><span class="status-badge available">Active</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings" class="tab-content">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">Portal Configuration</h1>
+            <div class="glass-card" style="max-width:600px;">
+                <h3 style="margin-bottom:20px;">Profile Settings</h3>
+                <div class="form-group"><label>Display Name</label><input type="text" value="Roshini V" class="form-control"></div>
+                <div class="form-group"><label>Notification Tone</label><select class="form-control"><option>Hospital Chime</option><option>Standard Alert</option></select></div>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px;">
+                    <div><b>Maintenance Mode</b><p class="text-muted" style="font-size:12px;">Toggle system-wide updates</p></div>
+                    <div style="width:48px; height:24px; background:#E2E8F0; border-radius:12px; position:relative;"><div style="width:20px; height:20px; background:white; border-radius:50%; position:absolute; top:2px; left:2px;"></div></div>
+                </div>
+                <button class="btn btn-primary" style="width:100%; margin-top:32px;">Save Preferences</button>
+            </div>
+        </div>
     </div>
 
     <!-- Booking Modal -->

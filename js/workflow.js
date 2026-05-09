@@ -121,16 +121,33 @@ const MediCore = {
         if (!tbody) return;
         let apps = MediCore.getAppointments();
         if (doctorName) apps = apps.filter(a => a.doctor === doctorName);
-        if (apps.length === 0) apps = [{ time: "10:30 AM", patient: "Johnathan Doe", doctor: "Dr. William Harrison", status: "Confirmed" }];
         
-        tbody.innerHTML = apps.map(app => `
-            <tr class="animate-in">
-                <td style="color:var(--primary); font-weight:700;">${app.time}</td>
-                <td><b>${app.patient}</b></td>
-                <td>${app.doctor}</td>
-                <td><span class="status-badge available">${app.status}</span></td>
-            </tr>
-        `).join('');
+        // Ensure we have data or show a fallback row
+        if (apps.length === 0) {
+            apps = [{ time: "10:30 AM", patient: "Johnathan Doe", doctor: "Dr. William Harrison", status: "Confirmed" }];
+        }
+        
+        tbody.innerHTML = apps.map(app => {
+            const pName = app.patient || "Unknown Patient";
+            const dName = app.doctor || "Unassigned";
+            const initials = pName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            
+            return `
+                <tr class="animate-in">
+                    <td style="color:var(--primary); font-weight:700;">${app.time || '--:--'}</td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:32px; height:32px; border-radius:8px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px;">
+                                ${initials}
+                            </div>
+                            <b>${pName}</b>
+                        </div>
+                    </td>
+                    <td style="color:var(--text-muted);">${dName}</td>
+                    <td><span class="status-badge available">${app.status || 'Confirmed'}</span></td>
+                </tr>
+            `;
+        }).join('');
     },
 
     setupNavigation: () => {
