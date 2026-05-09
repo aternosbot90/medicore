@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Oversight - MediCore</title>
+    <link rel="stylesheet" href="css/index.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: slideUp 0.4s ease-out; }
+        .stat-card { background: white; border: 1px solid var(--border); border-radius: 20px; padding: 24px; display: flex; align-items: center; gap: 20px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo"><i data-lucide="heart-pulse"></i><span>MediCore</span></div>
+        <nav>
+            <a href="#" class="nav-link active" data-tab="analytics"><i data-lucide="bar-chart-3"></i> Analytics</a>
+            <a href="#" class="nav-link" data-tab="workforce"><i data-lucide="users"></i> Workforce</a>
+            <a href="#" class="nav-link" data-tab="financials"><i data-lucide="landmark"></i> Financials</a>
+            <a href="#" class="nav-link" data-tab="config"><i data-lucide="settings"></i> Config</a>
+            <a href="index.html" class="nav-link" style="margin-top: auto; color: var(--danger);"><i data-lucide="log-out"></i> Logout</a>
+        </nav>
+    </div>
+
+    <div class="top-nav">
+        <div id="liveClock" style="background:var(--primary-light); color:var(--primary); padding:8px 16px; border-radius:99px; font-weight:700; font-size:14px;">00:00</div>
+        <div class="user-profile" style="display:flex; align-items:center; gap:12px;">
+            <img src="https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=100&h=100" style="width:40px; height:40px; border-radius:12px; object-fit:cover;">
+            <div><div style="font-weight:700; font-size:14px;">Admin Chief</div><div style="font-size:11px; color:var(--text-muted);">Hospital Owner</div></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- Analytics Tab -->
+        <div id="analytics" class="tab-content active">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">Hospital Performance</h1>
+            <div class="kpi-grid">
+                <div class="kpi-card"><div class="kpi-icon-box" style="background:#E8F1FF; color:#3B71FE;"><i data-lucide="trending-up"></i></div><div><div class="kpi-title">Monthly Revenue</div><div class="kpi-value" style="font-size:24px; font-weight:800;">₹84.2M</div></div></div>
+                <div class="kpi-card"><div class="kpi-icon-box" style="background:#F4F1FF; color:#8147FF;"><i data-lucide="users"></i></div><div><div class="kpi-title">Active Staff</div><div class="kpi-value" style="font-size:24px; font-weight:800;">124</div></div></div>
+            </div>
+            <div class="glass-card" style="margin-top:32px;">
+                <h3>Growth Insights</h3>
+                <div style="height:200px; background:#F8FAFC; border-radius:20px; border:1px solid var(--border); margin-top:24px; display:flex; align-items:center; justify-content:center; color:var(--text-muted);">
+                    <i data-lucide="pie-chart" style="width:32px; height:32px; margin-right:12px;"></i> Generating Real-time Analytics...
+                </div>
+            </div>
+        </div>
+
+        <!-- Workforce Tab -->
+        <div id="workforce" class="tab-content">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">Hospital Staffing</h1>
+            <table class="elite-table">
+                <thead><tr><th>Department</th><th>Lead Specialist</th><th>Team Size</th><th>Status</th></tr></thead>
+                <tbody>
+                    <tr><td><b>Cardiology</b></td><td><div style="display:flex; align-items:center; gap:12px;"><img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=100&h=100" style="width:32px; height:32px; border-radius:8px; object-fit:cover;"><span>Dr. William Harrison</span></div></td><td>12 Professionals</td><td><span class="status-badge available">High</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Financials Tab -->
+        <div id="financials" class="tab-content">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">Financial Ledgers</h1>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px;">
+                <div class="glass-card"><h4>Operating Income</h4><h2 style="color:var(--success); font-size:32px; font-weight:800; margin:16px 0;">+ ₹84,200,000</h2><p class="text-muted">62% from Surgery</p></div>
+                <div class="glass-card"><h4>Monthly Burn</h4><h2 style="color:var(--danger); font-size:32px; font-weight:800; margin:16px 0;">- ₹32,450,000</h2><p class="text-muted">Managed via MediCore Finance</p></div>
+            </div>
+        </div>
+
+        <!-- Config Tab -->
+        <div id="config" class="tab-content">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">System Configuration</h1>
+            <div class="glass-card" style="max-width:500px;">
+                <div style="margin-bottom:20px;"><label style="display:block; font-size:13px; font-weight:700; margin-bottom:8px;">Hospital Name</label><input type="text" value="MediCore General" style="width:100%; padding:14px; border-radius:12px; border:1px solid var(--border); background:#F8FAFC;"></div>
+                <button class="btn btn-primary" style="width:100%;">Update Global Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/workflow.js"></script>
+    <script>MediCore.setupNavigation(); if(window.lucide) lucide.createIcons();</script>
+</body>
+</html>

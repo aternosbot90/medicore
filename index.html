@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediCore - Access Portal</title>
+    <link rel="stylesheet" href="css/index.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
+        }
+        .portal-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            max-width: 800px;
+            width: 100%;
+        }
+        .role-box {
+            padding: 40px;
+            text-align: center;
+            text-decoration: none;
+            color: inherit;
+            transition: 0.3s;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+        }
+        .role-box:hover {
+            transform: translateY(-8px);
+            border-color: var(--primary);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.05);
+        }
+        .icon-box { 
+            width: 64px; 
+            height: 64px; 
+            background: var(--primary-light); 
+            color: var(--primary); 
+            border-radius: 16px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            margin: 0 auto 20px;
+        }
+    </style>
+</head>
+<body>
+    <div style="text-align: center; width: 100%; padding: 20px;">
+        <div style="font-size: 32px; font-weight: 700; color: var(--primary); margin-bottom: 48px; display: flex; align-items: center; justify-content: center; gap: 12px;">
+            <i data-lucide="heart-pulse"></i> MediCore Portal
+        </div>
+        
+        <div class="portal-grid" style="margin: 0 auto;">
+            <a href="patient.html" class="role-box">
+                <div class="icon-box"><i data-lucide="user"></i></div>
+                <h3>Patient</h3>
+                <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Book appointments & health history</p>
+            </a>
+            <a href="receptionist.html" class="role-box">
+                <div class="icon-box"><i data-lucide="layout-grid"></i></div>
+                <h3>Receptionist</h3>
+                <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Front-desk & doctor management</p>
+            </a>
+            <a href="doctor.html" class="role-box">
+                <div class="icon-box"><i data-lucide="stethoscope"></i></div>
+                <h3>Doctor</h3>
+                <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Clinical schedule & patient records</p>
+            </a>
+            <a href="owner.html" class="role-box">
+                <div class="icon-box"><i data-lucide="building"></i></div>
+                <h3>Super Admin</h3>
+                <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Hospital analytics & staff oversight</p>
+            </a>
+        </div>
+    </div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

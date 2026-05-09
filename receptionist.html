@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receptionist Dashboard - MediCore</title>
+    <link rel="stylesheet" href="css/index.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: slideUp 0.4s ease-out; }
+        
+        /* Gauge & Specialized UI */
+        .gauge-container { position: relative; width: 200px; height: 100px; margin: 0 auto; overflow: hidden; }
+        .gauge-body { position: absolute; width: 100%; height: 200%; border-radius: 50%; border: 18px solid #F1F5F9; border-bottom-color: var(--primary); transform: rotate(0.25turn); }
+        
+        /* Chat UI Restoration */
+        .chat-container { height: 500px; background: white; border-radius: 24px; border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; }
+        .chat-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .chat-messages { flex: 1; padding: 24px; background: #F8FAFC; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+        .message { max-width: 70%; padding: 14px 18px; border-radius: 16px; font-size: 14px; line-height: 1.5; }
+        .message.received { background: white; border: 1px solid var(--border); align-self: flex-start; }
+        .message.sent { background: var(--primary-gradient); color: white; align-self: flex-end; }
+        
+        /* Modal UI */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-box { background: white; width: 480px; padding: 40px; border-radius: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.15); }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--text-muted); }
+        .form-control { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--border); background: #F8FAFC; font-family: inherit; font-size: 14px; transition: 0.3s; }
+        .form-control:focus { outline: none; border-color: var(--primary); background: white; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo"><i data-lucide="heart-pulse"></i><span>MediCore</span></div>
+        <nav>
+            <a href="#" class="nav-link active" data-tab="dashboard"><i data-lucide="layout-grid"></i> Dashboard</a>
+            <a href="#" class="nav-link" data-tab="patients"><i data-lucide="users"></i> Patients</a>
+            <a href="#" class="nav-link" data-tab="messaging"><i data-lucide="message-circle"></i> Messaging</a>
+            <a href="#" class="nav-link" data-tab="billing"><i data-lucide="credit-card"></i> Billing</a>
+            <a href="#" class="nav-link" data-tab="staff"><i data-lucide="stethoscope"></i> Staff Directory</a>
+            <a href="#" class="nav-link" data-tab="settings"><i data-lucide="settings"></i> Settings</a>
+            <a href="index.html" class="nav-link" style="margin-top: auto; color: var(--danger);"><i data-lucide="log-out"></i> Logout</a>
+        </nav>
+    </div>
+
+    <div class="top-nav">
+        <div id="liveClock" style="background:var(--primary-light); color:var(--primary); padding:8px 16px; border-radius:99px; font-weight:700; font-size:14px;">00:00</div>
+        <div style="flex: 1; max-width: 400px; margin: 0 40px; position: relative;">
+            <i data-lucide="search" style="position: absolute; left: 16px; top: 14px; color: var(--text-muted); width: 18px;"></i>
+            <input type="text" placeholder="Search hospital..." class="form-control" style="padding-left: 48px; border: none;">
+        </div>
+        <div style="display:flex; align-items:center; gap:20px;">
+            <div style="position:relative;"><i data-lucide="bell" style="color:var(--text-muted);"></i><div style="position:absolute; top:-4px; right:-4px; width:8px; height:8px; background:var(--danger); border-radius:50%; border:2px solid white;"></div></div>
+            <div class="user-profile" style="display:flex; align-items:center; gap:12px;">
+                <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=100&h=100" style="width:40px; height:40px; border-radius:12px; object-fit:cover;">
+                <div><div style="font-weight:700; font-size:14px;">Roshini</div><div style="font-size:11px; color:var(--text-muted);">Receptionist</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content" id="masterContainer">
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:32px;">
+                <div><h1 style="font-size:28px; font-weight:800;">Hospital Overview</h1><p class="text-muted">Live performance and capacity monitoring</p></div>
+                <button class="btn btn-primary" onclick="openModal()"><i data-lucide="plus"></i> New Appointment</button>
+            </div>
+            
+            <div class="kpi-grid">
+                <div class="kpi-card"><div class="kpi-icon-box" style="background:#FFF4ED; color:#FF8F44;"><i data-lucide="calendar"></i></div><div><div class="kpi-title">Appointments</div><div class="kpi-value" style="font-size:24px; font-weight:800;">218</div></div></div>
+                <div class="kpi-card"><div class="kpi-icon-box" style="background:#E8F1FF; color:#3B71FE;"><i data-lucide="user"></i></div><div><div class="kpi-title">Total Visits</div><div class="kpi-value" style="font-size:24px; font-weight:800;">500</div></div></div>
+                <div class="kpi-card"><div class="kpi-icon-box" style="background:#F4F1FF; color:#8147FF;"><i data-lucide="activity"></i></div><div><div class="kpi-title">OPD Queue</div><div class="kpi-value" style="font-size:24px; font-weight:800;">14</div></div></div>
+                <div class="kpi-card"><div class="kpi-icon-box" style="background:#FFF1F7; color:#FF47A3;"><i data-lucide="dollar-sign"></i></div><div><div class="kpi-title">Revenue</div><div class="kpi-value" style="font-size:24px; font-weight:800;">₹2.1M</div></div></div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 380px; gap:24px;">
+                <div class="glass-card"><h3>Recent In-Patient Activity</h3><div id="receptionSchedule" style="margin-top:24px;"></div></div>
+                <div class="glass-card" style="text-align:center;">
+                    <h3>Capacity Gauge</h3>
+                    <div class="gauge-container" style="margin-top:32px;"><div class="gauge-body"></div></div>
+                    <p style="margin-top:20px; font-weight:800; font-size:18px;">84% Full</p>
+                    <div style="margin-top:24px; text-align:left;"><h3>Doctor Status</h3><div id="availabilityList" style="margin-top:16px;"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Patients Tab -->
+        <div id="patients" class="tab-content">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">Patient Database</h1>
+            <table class="elite-table">
+                <thead><tr><th>Patient ID</th><th>Full Name</th><th>Age/Sex</th><th>Condition</th><th>Status</th></tr></thead>
+                <tbody>
+                    <tr><td><span style="font-weight:700; color:var(--primary);">#MC-9921</span></td><td><div style="display:flex; align-items:center; gap:12px;"><div style="width:36px; height:36px; border-radius:10px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800;">JD</div><b>Johnathan Doe</b></div></td><td>42 / M</td><td>Hypertension</td><td><span class="status-badge available">Checked In</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Messaging Tab -->
+        <div id="messaging" class="tab-content">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">Clinical Messenger</h1>
+            <div class="chat-container">
+                <div class="chat-header"><b>Dr. William Harrison (Cardiology)</b><span class="status-badge available">Online</span></div>
+                <div class="chat-messages">
+                    <div class="message received">Did Mr. Doe arrive for his 10:30 AM slot?</div>
+                    <div class="message sent">Yes Doctor, he is currently at the vitals station.</div>
+                </div>
+                <div style="padding:20px; background:white; border-top:1px solid var(--border); display:flex; gap:16px;">
+                    <input type="text" placeholder="Type a message..." class="form-control" style="flex:1;">
+                    <button class="btn btn-primary"><i data-lucide="send"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Others -->
+        <div id="billing" class="tab-content"><h1>Invoicing & Ledger</h1></div>
+        <div id="staff" class="tab-content"><h1>Medical Staff Directory</h1></div>
+        <div id="settings" class="tab-content"><h1>Global Settings</h1></div>
+    </div>
+
+    <!-- Booking Modal -->
+    <div class="modal-overlay" id="bookingModal">
+        <div class="modal-box">
+            <h2 style="font-size:24px; font-weight:800; margin-bottom:24px;">New Appointment</h2>
+            <div class="form-group"><label>Patient Name</label><input type="text" id="pName" class="form-control" placeholder="Full name"></div>
+            <div class="form-group"><label>Select Doctor</label><select id="dSelect" class="form-control"><option>Dr. William Harrison</option><option>Dr. Natalie Brooks</option></select></div>
+            <div class="form-group"><label>Time Slot</label><input type="time" id="aTime" class="form-control"></div>
+            <div style="display:flex; gap:16px; margin-top:32px;">
+                <button class="btn btn-secondary" style="flex:1;" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" style="flex:1;" onclick="confirmBooking()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/workflow.js"></script>
+    <script>
+        function openModal() { document.getElementById('bookingModal').style.display='flex'; }
+        function closeModal() { document.getElementById('bookingModal').style.display='none'; }
+        function confirmBooking() {
+            const p = document.getElementById('pName').value;
+            const d = document.getElementById('dSelect').value;
+            const t = document.getElementById('aTime').value;
+            if(p && t) { MediCore.saveAppointment(p, d, t); closeModal(); location.reload(); }
+        }
+        MediCore.setupNavigation();
+        if(window.lucide) lucide.createIcons();
+    </script>
+</body>
+</html>
