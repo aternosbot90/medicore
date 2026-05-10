@@ -16,20 +16,23 @@
         }
         .portal-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 24px;
-            max-width: 800px;
+            max-width: 1000px;
             width: 100%;
         }
+        @media (max-width: 900px) { .portal-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px) { .portal-grid { grid-template-columns: 1fr; } }
+
         .role-box {
-            padding: 40px;
+            padding: 40px 24px;
             text-align: center;
             text-decoration: none;
             color: inherit;
             transition: 0.3s;
             background: white;
             border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
+            border-radius: 20px;
         }
         .role-box:hover {
             transform: translateY(-8px);
@@ -50,31 +53,41 @@
     </style>
 </head>
 <body>
-    <div style="text-align: center; width: 100%; padding: 20px;">
-        <div style="font-size: 32px; font-weight: 700; color: var(--primary); margin-bottom: 48px; display: flex; align-items: center; justify-content: center; gap: 12px;">
-            <i data-lucide="heart-pulse"></i> MediCore Portal
+    <div style="text-align: center; width: 100%; padding: 40px;">
+        <div style="font-size: 32px; font-weight: 800; color: var(--primary); margin-bottom: 48px; display: flex; align-items: center; justify-content: center; gap: 12px;">
+            <i data-lucide="heart-pulse"></i> MediCore Platform
         </div>
         
         <div class="portal-grid" style="margin: 0 auto;">
             <a href="patient.html" class="role-box">
                 <div class="icon-box"><i data-lucide="user"></i></div>
                 <h3>Patient</h3>
-                <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Book appointments & health history</p>
+                <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">Book appointments & health history</p>
             </a>
             <a href="receptionist.html" class="role-box">
                 <div class="icon-box"><i data-lucide="layout-grid"></i></div>
                 <h3>Receptionist</h3>
-                <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Front-desk & doctor management</p>
+                <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">Front-desk & patient registration</p>
             </a>
             <a href="doctor.html" class="role-box">
                 <div class="icon-box"><i data-lucide="stethoscope"></i></div>
                 <h3>Doctor</h3>
-                <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Clinical schedule & patient records</p>
+                <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">Clinical schedule & consultations</p>
+            </a>
+            <a href="pharmacy.html" class="role-box">
+                <div class="icon-box" style="background:#ECFDF5; color:#059669;"><i data-lucide="pill"></i></div>
+                <h3>Pharmacy</h3>
+                <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">Inventory & medicine billing</p>
+            </a>
+            <a href="laboratory.html" class="role-box">
+                <div class="icon-box" style="background:#FEF2F2; color:#DC2626;"><i data-lucide="flask-conical"></i></div>
+                <h3>Laboratory</h3>
+                <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">Test requests & report uploads</p>
             </a>
             <a href="owner.html" class="role-box">
-                <div class="icon-box"><i data-lucide="building"></i></div>
+                <div class="icon-box" style="background:#FFFBEB; color:#D97706;"><i data-lucide="building"></i></div>
                 <h3>Super Admin</h3>
-                <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Hospital analytics & staff oversight</p>
+                <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">Hospital analytics & oversight</p>
             </a>
         </div>
     </div>

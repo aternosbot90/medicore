@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratory - MediCore</title>
+    <link rel="stylesheet" href="css/index.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: slideUp 0.4s ease-out; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo"><i data-lucide="heart-pulse"></i><span>MediCore</span></div>
+        <nav>
+            <a href="#" class="nav-link active" data-tab="requests"><i data-lucide="clipboard-list"></i> Test Requests</a>
+            <a href="#" class="nav-link" data-tab="upload"><i data-lucide="upload-cloud"></i> Upload Reports</a>
+            <a href="index.html" class="nav-link" style="margin-top: auto; color: #FCA5A5;"><i data-lucide="log-out"></i> Logout</a>
+        </nav>
+    </div>
+
+    <div class="top-nav">
+        <div id="liveClock" style="background:var(--primary-light); color:var(--primary); padding:8px 16px; border-radius:99px; font-weight:700; font-size:14px;">00:00</div>
+        <div class="user-profile" style="display:flex; align-items:center; gap:12px;">
+            <div style="text-align:right;">
+                <div style="font-weight:700; font-size:14px;">Lab Technician</div>
+                <div style="font-size:11px; color:var(--text-muted);">Pathology Dept.</div>
+            </div>
+            <div style="width:40px; height:40px; border-radius:12px; background:#FEF2F2; color:#DC2626; display:flex; align-items:center; justify-content:center;"><i data-lucide="flask-conical"></i></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div id="requests" class="tab-content active">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">Pending Test Requests</h1>
+            <table class="elite-table">
+                <thead><tr><th>Time</th><th>Patient</th><th>Test Name</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td>10:45 AM</td>
+                        <td><b>Johnathan Doe</b></td>
+                        <td>Complete Blood Count</td>
+                        <td><span class="status-badge pending">Pending</span></td>
+                        <td><button class="btn btn-primary" style="padding:8px 16px;">Process</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="js/workflow.js"></script>
+    <script>
+        MediCore.setupNavigation();
+        if(window.lucide) lucide.createIcons();
+    </script>
+</body>
+</html>

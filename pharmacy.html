@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy Module - MediCore</title>
+    <link rel="stylesheet" href="css/index.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: slideUp 0.4s ease-out; }
+        
+        /* Inventory Alerts */
+        .stock-alert { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .stock-alert.low { background: #FFFBEB; color: #D97706; }
+        .stock-alert.out { background: #FEF2F2; color: #DC2626; }
+        
+        .inventory-card { background: white; border: 1px solid var(--border); border-radius: 16px; padding: 20px; transition: 0.3s; }
+        .inventory-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo"><i data-lucide="heart-pulse"></i><span>MediCore</span></div>
+        <nav>
+            <a href="#" class="nav-link active" data-tab="prescriptions"><i data-lucide="file-text"></i> Prescriptions</a>
+            <a href="#" class="nav-link" data-tab="inventory"><i data-lucide="package"></i> Inventory</a>
+            <a href="#" class="nav-link" data-tab="sales"><i data-lucide="bar-chart-3"></i> Sales Reports</a>
+            <a href="index.html" class="nav-link" style="margin-top: auto; color: #FCA5A5;"><i data-lucide="log-out"></i> Logout</a>
+        </nav>
+    </div>
+
+    <div class="top-nav">
+        <div id="liveClock" style="background:var(--primary-light); color:var(--primary); padding:8px 16px; border-radius:99px; font-weight:700; font-size:14px;">00:00</div>
+        <div style="flex: 1; max-width: 400px; margin: 0 40px; position: relative;">
+            <i data-lucide="search" style="position: absolute; left: 16px; top: 14px; color: var(--text-muted); width: 18px;"></i>
+            <input type="text" placeholder="Search medicines or patients..." style="padding:14px; padding-left: 48px; border-radius:12px; border:none; background:#F8FAFC; width:100%;">
+        </div>
+        <div class="user-profile" style="display:flex; align-items:center; gap:12px;">
+            <div style="text-align:right;">
+                <div style="font-weight:700; font-size:14px;">Rahul Sharma</div>
+                <div style="font-size:11px; color:var(--text-muted);">Pharmacist</div>
+            </div>
+            <img src="https://images.unsplash.com/photo-1559839734-2b71f1536783?auto=format&fit=crop&q=80&w=100&h=100" style="width:40px; height:40px; border-radius:12px; object-fit:cover;">
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- Pending Prescriptions Tab -->
+        <div id="prescriptions" class="tab-content active">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:32px;">
+                <h1 style="font-size:28px; font-weight:800;">Pending Prescriptions</h1>
+                <div class="status-badge available" style="padding:10px 20px;">
+                    <i data-lucide="bell" style="width:16px; margin-right:8px;"></i> 3 New Prescriptions
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap:24px;">
+                <!-- Prescription Cards -->
+                <div class="glass-card animate-in">
+                    <div class="flex-between" style="margin-bottom:16px;">
+                        <span class="status-badge pending">Awaiting Billing</span>
+                        <span style="font-size:12px; color:var(--text-muted);">10 min ago</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                        <div style="width:48px; height:48px; border-radius:12px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800;">JD</div>
+                        <div>
+                            <div style="font-weight:800; font-size:16px;">Johnathan Doe</div>
+                            <div style="font-size:12px; color:var(--text-muted);">Dr. William Harrison</div>
+                        </div>
+                    </div>
+                    <div style="background:var(--bg-main); border-radius:12px; padding:12px; font-size:13px; margin-bottom:20px;">
+                        <div class="flex-between"><span>Amlodipine 5mg</span> <b>30 Tabs</b></div>
+                        <div class="flex-between" style="margin-top:4px;"><span>Atorvastatin 20mg</span> <b>15 Tabs</b></div>
+                    </div>
+                    <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="MediCore.processPrescription('JD', 'Johnathan Doe')">
+                        Process & Bill
+                    </button>
+                </div>
+
+                <div class="glass-card animate-in" style="border-color: #FCA5A5; background: #FFF1F2;">
+                    <div class="flex-between" style="margin-bottom:16px;">
+                        <span class="status-badge critical">Emergency Rx</span>
+                        <span style="font-size:12px; color:var(--text-muted);">Just now</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                        <div style="width:48px; height:48px; border-radius:12px; background:#DC2626; color:white; display:flex; align-items:center; justify-content:center; font-weight:800;">T</div>
+                        <div>
+                            <div style="font-weight:800; font-size:16px;">tushar</div>
+                            <div style="font-size:12px; color:var(--text-muted);">Emergency Unit</div>
+                        </div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.5); border-radius:12px; padding:12px; font-size:13px; margin-bottom:20px;">
+                        <div class="flex-between"><span>Inj. Pantoprazole</span> <b>1 Vial</b></div>
+                    </div>
+                    <button class="btn btn-emergency" style="width:100%; justify-content:center;" onclick="MediCore.processPrescription('T', 'tushar')">
+                        Dispense Instantly
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Tab -->
+        <div id="inventory" class="tab-content">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:32px;">
+                <h1 style="font-size:28px; font-weight:800;">Medicine Inventory</h1>
+                <button class="btn btn-primary"><i data-lucide="plus"></i> Add Stock</button>
+            </div>
+
+            <table class="elite-table">
+                <thead>
+                    <tr>
+                        <th>Medicine Name</th>
+                        <th>Category</th>
+                        <th>Stock Level</th>
+                        <th>Expiry</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryList">
+                    <tr>
+                        <td><b>Amlodipine 5mg</b></td>
+                        <td>Hypertension</td>
+                        <td><div style="display:flex; align-items:center; gap:8px;">450 <span class="stock-alert low">Low Stock</span></div></td>
+                        <td>Oct 2026</td>
+                        <td><button class="btn btn-secondary" style="padding:8px 12px;">Update</button></td>
+                    </tr>
+                    <tr>
+                        <td><b>Inj. Pantoprazole</b></td>
+                        <td>Emergency</td>
+                        <td><div style="display:flex; align-items:center; gap:8px;">0 <span class="stock-alert out">Out of Stock</span></div></td>
+                        <td>Oct 2025</td>
+                        <td><button class="btn btn-primary" style="padding:8px 12px; background:var(--primary);">Restock</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Sales Tab -->
+        <div id="sales" class="tab-content">
+            <h1 style="font-size:28px; font-weight:800; margin-bottom:24px;">Pharmacy Sales Analytics</h1>
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon-box" style="background:var(--success-bg); color:var(--success);"><i data-lucide="trending-up"></i></div>
+                    <div><div style="font-size:13px; color:var(--text-muted);">Today's Revenue</div><div style="font-size:24px; font-weight:800;">₹24,500</div></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon-box" style="background:var(--primary-light); color:var(--primary);"><i data-lucide="shopping-bag"></i></div>
+                    <div><div style="font-size:13px; color:var(--text-muted);">Orders Processed</div><div style="font-size:24px; font-weight:800;">42</div></div>
+                </div>
+            </div>
+            <div class="glass-card">
+                <h3 style="margin-bottom:20px;">Recent Transactions</h3>
+                <table class="elite-table" style="box-shadow:none; border:none;">
+                    <thead><tr><th>Order ID</th><th>Patient</th><th>Amount</th><th>Status</th></tr></thead>
+                    <tbody>
+                        <tr><td>#PH-7721</td><td>John Doe</td><td>₹952.00</td><td><span class="status-badge available">Completed</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Modal -->
+    <div class="modal-overlay" id="pharmacyModal">
+        <div class="modal-box" style="width: 900px; max-width: 95vw; border-radius: 28px; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="padding: 24px 40px; background: #F8FAFC; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <h2 style="font-size:24px; font-weight:800;" id="pPatientName">Process Prescription</h2>
+                    <p class="text-muted" id="pPatientId">Patient ID: #MC-9921</p>
+                </div>
+                <button class="btn btn-secondary" onclick="document.getElementById('pharmacyModal').style.display='none'"><i data-lucide="x"></i></button>
+            </div>
+            
+            <div style="flex: 1; padding: 40px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px;">
+                <div>
+                    <h3 style="margin-bottom:20px;">Prescribed Medicines</h3>
+                    <div id="pMedList" style="display:flex; flex-direction:column; gap:16px;">
+                        <!-- Items injected here -->
+                    </div>
+                </div>
+
+                <div style="background: #F8FAFC; border-radius: 24px; padding: 32px; border: 1px solid var(--border);">
+                    <h3 style="margin-bottom:24px;">Billing Summary</h3>
+                    <div style="display:flex; flex-direction:column; gap:16px; font-size:15px;">
+                        <div class="flex-between"><span>Medicine Total</span> <b>₹850.00</b></div>
+                        <div class="flex-between"><span>Pharmacy GST (12%)</span> <b>₹102.00</b></div>
+                        <div class="flex-between" style="border-top:1px dashed var(--border); padding-top:16px; margin-top:8px;">
+                            <span style="font-weight:800; font-size:18px;">Grand Total</span>
+                            <b style="font-size:24px; color:var(--primary);">₹952.00</b>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" style="width:100%; margin-top:40px; height:60px; justify-content:center;" onclick="MediCore.completePharmacyFlow()">
+                        Dispense & Generate Invoice
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/workflow.js"></script>
+    <script>
+        MediCore.setupNavigation();
+        if(window.lucide) lucide.createIcons();
+    </script>
+</body>
+</html>

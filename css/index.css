@@ -17,24 +17,28 @@
     --danger-bg: #FEF2F2;
     --warning: #D97706;
     --warning-bg: #FFFBEB;
+    
+    /* Dark Theme Sidebar */
+    --sidebar-bg: #0F172A;
+    --sidebar-text: #94A3B8;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Urbanist', sans-serif; background: var(--bg-main); color: var(--text-main); line-height: 1.5; }
+body { font-family: 'Urbanist', sans-serif; background: var(--bg-main); color: var(--text-main); line-height: 1.5; overflow-x: hidden; }
 
-/* ELITE SIDEBAR */
-.sidebar { width: 260px; height: 100vh; background: white; border-right: 1px solid var(--border); position: fixed; padding: 32px 0; display: flex; flex-direction: column; z-index: 100; }
-.sidebar-logo { padding: 0 32px 32px; display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 800; color: var(--primary); }
+/* ELITE SIDEBAR - MODERN DARK BLUE THEME */
+.sidebar { width: 260px; height: 100vh; background: var(--sidebar-bg); position: fixed; padding: 32px 0; display: flex; flex-direction: column; z-index: 100; box-shadow: 10px 0 30px rgba(0,0,0,0.05); }
+.sidebar-logo { padding: 0 32px 32px; display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 800; color: white; }
 .nav-link { 
-    display: flex; align-items: center; gap: 12px; padding: 14px 32px; color: var(--text-muted); 
+    display: flex; align-items: center; gap: 12px; padding: 14px 32px; color: var(--sidebar-text); 
     text-decoration: none; font-weight: 600; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-left: 4px solid transparent;
 }
 .nav-link i { width: 20px; height: 20px; }
-.nav-link:hover { background: var(--bg-main); color: var(--primary); }
+.nav-link:hover { background: rgba(255,255,255,0.05); color: white; }
 .nav-link.active { 
-    background: var(--primary-light); color: var(--primary); 
-    border-left: 4px solid var(--primary); background: #F0F4FF;
+    background: #2563EB; color: white; 
+    border-left: 4px solid #60A5FA;
 }
 
 /* PREMIUM LAYOUT */
@@ -98,8 +102,9 @@ body { font-family: 'Urbanist', sans-serif; background: var(--bg-main); color: v
 .doc-rating-badge { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); backdrop-filter: blur(4px); padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 800; color: #F59E0B; display: flex; align-items: center; gap: 4px; }
 
 /* PROFILE MODAL */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 1000; }
-.profile-modal { background: white; width: 600px; border-radius: 28px; overflow: hidden; animation: zoomIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+.modal-box { background: white; border-radius: 28px; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.2); animation: zoomIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.profile-modal { background: white; border-radius: 28px; overflow: hidden; width: 600px; box-shadow: 0 30px 60px rgba(0,0,0,0.2); }
 @keyframes zoomIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 .profile-header { height: 200px; background: var(--primary-gradient); padding: 40px; color: white; display: flex; gap: 24px; align-items: flex-end; }
 .profile-body { padding: 40px; }
@@ -107,3 +112,72 @@ body { font-family: 'Urbanist', sans-serif; background: var(--bg-main); color: v
 
 .animate-in { animation: slideUp 0.5s ease-out forwards; }
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* EMERGENCY STYLES */
+.btn-emergency {
+    background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%) !important;
+    color: white !important;
+    box-shadow: 0 0 15px rgba(220, 38, 38, 0.4);
+    animation: pulse-red 2s infinite;
+}
+.btn-emergency:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 25px rgba(220, 38, 38, 0.6);
+}
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+.status-badge.critical {
+    background: #FEF2F2 !important;
+    color: #DC2626 !important;
+    border: 1px solid #FCA5A5;
+    animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0.7; }
+}
+
+.emergency-variant-card {
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    cursor: pointer;
+    transition: 0.3s;
+    text-align: left;
+}
+.emergency-variant-card:hover {
+    border-color: var(--primary);
+    background: var(--bg-main);
+}
+.emergency-variant-card.selected {
+    border-color: var(--primary);
+    background: #F0F4FF;
+}
+
+/* GLOBAL FORM CONTROLS */
+.form-group { margin-bottom: 24px; width: 100%; }
+.form-group label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--text-muted); }
+.form-control { 
+    width: 100%; padding: 14px 18px; border-radius: 12px; border: 1px solid var(--border); 
+    background: #F8FAFC; font-family: inherit; font-size: 14px; transition: 0.3s; 
+    outline: none; color: var(--text-main); display: block;
+}
+.form-control:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 4px rgba(59, 113, 254, 0.1); }
+textarea.form-control { resize: none; min-height: 100px; width: 100% !important; display: block; }
+
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+
+/* SLOT SELECTION UI */
+.slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+.slot-btn { 
+    padding: 10px; border-radius: 10px; border: 1px solid var(--border); 
+    background: white; text-align: center; font-size: 12px; font-weight: 700; 
+    cursor: pointer; transition: 0.2s;
+}
+.slot-btn:hover { border-color: var(--primary); color: var(--primary); }
+.slot-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
