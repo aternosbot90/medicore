@@ -52,7 +52,8 @@
     <div class="sidebar">
         <div class="sidebar-logo"><i data-lucide="heart-pulse"></i><span>MediCore</span></div>
         <nav>
-            <a href="#" class="nav-link active" data-tab="schedule"><i data-lucide="calendar"></i> Appointments</a>
+            <a href="#" class="nav-link active" data-tab="dash"><i data-lucide="layout-grid"></i> Dashboard</a>
+            <a href="#" class="nav-link" data-tab="schedule"><i data-lucide="calendar"></i> Appointments</a>
             <a href="#" class="nav-link" data-tab="mypatients"><i data-lucide="users"></i> My Patients</a>
             <a href="#" class="nav-link" data-tab="clinicalchat"><i data-lucide="message-circle"></i> Clinical Chat</a>
             <a href="#" class="nav-link" data-tab="ehrvault"><i data-lucide="folder-key"></i> EHR Vault</a>
@@ -73,8 +74,89 @@
     </div>
 
     <div class="main-content">
+        <!-- Dashboard Tab -->
+        <div id="dash" class="tab-content active">
+            <div style="display:grid; grid-template-columns: 1fr 340px; gap:40px;">
+                <!-- Left: Operations -->
+                <div>
+                    <h1 style="font-size:28px; font-weight:800; margin-bottom:32px;">Clinical Overview</h1>
+                    
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <div class="kpi-icon-box" style="background:var(--primary-light); color:var(--primary);"><i data-lucide="users"></i></div>
+                            <div><div style="font-size:13px; color:var(--text-muted);">Consultations</div><div style="font-size:24px; font-weight:800;">18/24</div></div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon-box" style="background:var(--warning-bg); color:var(--warning);"><i data-lucide="clock"></i></div>
+                            <div><div style="font-size:13px; color:var(--text-muted);">Avg. Wait Time</div><div style="font-size:24px; font-weight:800;">12m</div></div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon-box" style="background:var(--success-bg); color:var(--success);"><i data-lucide="trending-up"></i></div>
+                            <div><div style="font-size:13px; color:var(--text-muted);">Efficiency</div><div style="font-size:24px; font-weight:800;">+12%</div></div>
+                        </div>
+                    </div>
+
+                    <div id="emergencyAlertSection"></div>
+
+                    <div class="glass-card">
+                        <h3 style="margin-bottom:20px; display:flex; align-items:center; gap:8px;"><i data-lucide="activity"></i> Priority Queue</h3>
+                        <div id="priorityQueueList">
+                            <table class="elite-table" style="margin:0; border:none;">
+                                <thead><tr><th>Token</th><th>Patient</th><th>Status</th><th>Action</th></tr></thead>
+                                <tbody>
+                                    <tr>
+                                        <td><b>#A-42</b></td>
+                                        <td>Johnathan Doe</td>
+                                        <td><span class="status-badge available">Ready</span></td>
+                                        <td><button class="btn btn-primary" style="padding:8px 16px;" onclick="MediCore.openConsultation('A-42', 'Johnathan Doe')">Attend</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Summary Panel -->
+                <div style="background: white; border-radius: 32px; border: 1px solid var(--border); padding: 32px; height: fit-content; position: sticky; top: 112px;">
+                    <h3 style="margin-bottom:24px; font-size:18px;">Quick Stats</h3>
+                    
+                    <div style="margin-bottom:32px;">
+                        <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:16px;">MONTHLY PERFORMANCE</div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                            <span style="font-size:13px; font-weight:700;">Patient Satisfaction</span>
+                            <span style="font-size:13px; font-weight:800; color:var(--primary);">94%</span>
+                        </div>
+                        <div style="height:6px; background:var(--bg-main); border-radius:3px; overflow:hidden;">
+                            <div style="width:94%; height:100%; background:var(--primary);"></div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:32px;">
+                        <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:16px;">DEPARTMENT PULSE</div>
+                        <div style="display:flex; flex-direction:column; gap:16px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="width:8px; height:8px; border-radius:50%; background:var(--success);"></div>
+                                <div style="flex:1; font-size:13px; font-weight:600;">Reception Desk</div>
+                                <div style="font-size:12px; font-weight:800;">ONLINE</div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="width:8px; height:8px; border-radius:50%; background:var(--success);"></div>
+                                <div style="flex:1; font-size:13px; font-weight:600;">Pharmacy Unit</div>
+                                <div style="font-size:12px; font-weight:800;">ONLINE</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="padding:24px; background:var(--primary-light); border-radius:24px; text-align:center;">
+                        <div style="font-size:12px; font-weight:700; color:var(--primary); margin-bottom:8px;">AVG. CONSULTATION TIME</div>
+                        <div style="font-size:28px; font-weight:900; color:var(--primary);">12m 45s</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Appointments Tab -->
-        <div id="schedule" class="tab-content active">
+        <div id="schedule" class="tab-content">
             <div id="emergencyAlertSection"></div>
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
                 <h1 style="font-size:28px; font-weight:800;">Today's Schedule</h1>

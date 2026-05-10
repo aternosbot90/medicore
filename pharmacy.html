@@ -48,54 +48,72 @@
     <div class="main-content">
         <!-- Pending Prescriptions Tab -->
         <div id="prescriptions" class="tab-content active">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:32px;">
-                <h1 style="font-size:28px; font-weight:800;">Pending Prescriptions</h1>
-                <div class="status-badge available" style="padding:10px 20px;">
-                    <i data-lucide="bell" style="width:16px; margin-right:8px;"></i> 3 New Prescriptions
-                </div>
-            </div>
-
-            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap:24px;">
-                <!-- Prescription Cards -->
-                <div class="glass-card animate-in">
-                    <div class="flex-between" style="margin-bottom:16px;">
-                        <span class="status-badge pending">Awaiting Billing</span>
-                        <span style="font-size:12px; color:var(--text-muted);">10 min ago</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
-                        <div style="width:48px; height:48px; border-radius:12px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800;">JD</div>
-                        <div>
-                            <div style="font-weight:800; font-size:16px;">Johnathan Doe</div>
-                            <div style="font-size:12px; color:var(--text-muted);">Dr. William Harrison</div>
+            <div style="display:grid; grid-template-columns: 1fr 340px; gap:40px;">
+                <!-- Left: Pending Dispatch Queue -->
+                <div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:32px;">
+                        <h1 style="font-size:28px; font-weight:800;">Pending Dispatch</h1>
+                        <div class="status-badge available" style="padding:10px 20px;">
+                            <i data-lucide="zap" style="width:16px; margin-right:8px; fill:currentColor;"></i> Live Updates Active
                         </div>
                     </div>
-                    <div style="background:var(--bg-main); border-radius:12px; padding:12px; font-size:13px; margin-bottom:20px;">
-                        <div class="flex-between"><span>Amlodipine 5mg</span> <b>30 Tabs</b></div>
-                        <div class="flex-between" style="margin-top:4px;"><span>Atorvastatin 20mg</span> <b>15 Tabs</b></div>
-                    </div>
-                    <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="MediCore.processPrescription('JD', 'Johnathan Doe')">
-                        Process & Bill
-                    </button>
-                </div>
 
-                <div class="glass-card animate-in" style="border-color: #FCA5A5; background: #FFF1F2;">
-                    <div class="flex-between" style="margin-bottom:16px;">
-                        <span class="status-badge critical">Emergency Rx</span>
-                        <span style="font-size:12px; color:var(--text-muted);">Just now</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
-                        <div style="width:48px; height:48px; border-radius:12px; background:#DC2626; color:white; display:flex; align-items:center; justify-content:center; font-weight:800;">T</div>
-                        <div>
-                            <div style="font-weight:800; font-size:16px;">tushar</div>
-                            <div style="font-size:12px; color:var(--text-muted);">Emergency Unit</div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px;" id="pendingPrescriptionGrid">
+                        <!-- Prescription Cards injected by JS -->
+                        <div class="glass-card animate-in">
+                            <div class="flex-between" style="margin-bottom:16px;">
+                                <span class="status-badge pending">Awaiting Payment</span>
+                                <span style="font-size:12px; color:var(--text-muted);">10 min ago</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                                <div style="width:48px; height:48px; border-radius:12px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800;">JD</div>
+                                <div>
+                                    <div style="font-weight:800; font-size:16px;">Johnathan Doe</div>
+                                    <div style="font-size:12px; color:var(--text-muted);">Dr. William Harrison</div>
+                                </div>
+                            </div>
+                            <div style="background:var(--bg-main); border-radius:12px; padding:12px; font-size:13px; margin-bottom:20px;">
+                                <div class="flex-between" style="margin-bottom:6px;"><span>Amlodipine 5mg</span> <b style="color:var(--primary);">30 Tabs</b></div>
+                                <div class="flex-between"><span>Atorvastatin 20mg</span> <b style="color:var(--primary);">15 Tabs</b></div>
+                            </div>
+                            <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="MediCore.processPrescription('JD', 'Johnathan Doe')">
+                                Process & Dispense
+                            </button>
                         </div>
                     </div>
-                    <div style="background:rgba(255,255,255,0.5); border-radius:12px; padding:12px; font-size:13px; margin-bottom:20px;">
-                        <div class="flex-between"><span>Inj. Pantoprazole</span> <b>1 Vial</b></div>
+                </div>
+
+                <!-- Right: Inventory Alerts & Stats -->
+                <div style="background: white; border-radius: 32px; border: 1px solid var(--border); padding: 32px; height: fit-content; position: sticky; top: 112px;">
+                    <h3 style="margin-bottom:24px; font-size:18px;">Live Inventory Summary</h3>
+                    
+                    <div style="margin-bottom:32px;">
+                        <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:16px;">CRITICAL STOCK ALERTS</div>
+                        <div style="display:flex; flex-direction:column; gap:16px;">
+                            <div style="display:flex; align-items:center; gap:12px; padding:12px; background:var(--danger-bg); border-radius:12px;">
+                                <i data-lucide="alert-circle" style="color:var(--danger); width:18px;"></i>
+                                <div style="flex:1;">
+                                    <div style="font-size:13px; font-weight:800; color:var(--danger);">Inj. Pantoprazole</div>
+                                    <div style="font-size:11px; color:var(--danger); opacity:0.8;">Out of Stock</div>
+                                </div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:12px; padding:12px; background:var(--warning-bg); border-radius:12px;">
+                                <i data-lucide="clock" style="color:var(--warning); width:18px;"></i>
+                                <div style="flex:1;">
+                                    <div style="font-size:13px; font-weight:800; color:var(--warning);">Amlodipine 5mg</div>
+                                    <div style="font-size:11px; color:var(--warning); opacity:0.8;">Only 42 left</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <button class="btn btn-emergency" style="width:100%; justify-content:center;" onclick="MediCore.processPrescription('T', 'tushar')">
-                        Dispense Instantly
-                    </button>
+
+                    <div style="padding:24px; background:var(--success-bg); border-radius:24px; text-align:center; border: 1px solid #A7F3D0;">
+                        <div style="font-size:12px; font-weight:700; color:var(--success); margin-bottom:8px;">TODAY'S DISPENSING</div>
+                        <div style="font-size:28px; font-weight:900; color:var(--success);">142 Units</div>
+                        <div style="font-size:11px; font-weight:700; color:var(--success); margin-top:4px;">+18% from yesterday</div>
+                    </div>
+
+                    <button class="btn btn-secondary" style="width:100%; margin-top:24px; justify-content:center;" onclick="document.querySelector('[data-tab=inventory]').click()"><i data-lucide="package"></i> Manage Stock</button>
                 </div>
             </div>
         </div>
@@ -174,9 +192,22 @@
             
             <div style="flex: 1; padding: 40px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px;">
                 <div>
-                    <h3 style="margin-bottom:20px;">Prescribed Medicines</h3>
+                    <h3 style="margin-bottom:20px;">Order Review</h3>
                     <div id="pMedList" style="display:flex; flex-direction:column; gap:16px;">
-                        <!-- Items injected here -->
+                        <div class="glass-card" style="padding:16px; display:flex; align-items:center; justify-content:space-between;">
+                            <div>
+                                <div style="font-weight:800;">Amlodipine 5mg</div>
+                                <div style="font-size:12px; color:var(--text-muted);">30 Tablets Prescribed</div>
+                            </div>
+                            <div class="status-badge available" style="font-size:11px;"><i data-lucide="check-circle" style="width:14px; margin-right:4px;"></i> In Stock</div>
+                        </div>
+                        <div class="glass-card" style="padding:16px; display:flex; align-items:center; justify-content:space-between;">
+                            <div>
+                                <div style="font-weight:800;">Atorvastatin 20mg</div>
+                                <div style="font-size:12px; color:var(--text-muted);">15 Tablets Prescribed</div>
+                            </div>
+                            <div class="status-badge pending" style="font-size:11px; background:#FEF3C7; color:#92400E;"><i data-lucide="alert-triangle" style="width:14px; margin-right:4px;"></i> Low Stock (18 left)</div>
+                        </div>
                     </div>
                 </div>
 
