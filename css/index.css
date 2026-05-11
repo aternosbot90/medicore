@@ -771,3 +771,43 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
     font-weight: 800;
     color: var(--primary);
 }
+
+/* CHART GRID & LEGEND */
+.chart-grid-line {
+    stroke: #F1F5F9;
+    stroke-width: 1;
+}
+.legend-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 24px;
+    background: #F8FAFC;
+    border-radius: 16px;
+    border: 1px solid transparent;
+    transition: 0.3s;
+}
+.legend-card:hover {
+    border-color: #E2E8F0;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+.legend-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.trend-dot {
+    fill: white;
+    stroke: #3B82F6;
+    stroke-width: 3;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.trend-dot:hover {
+    r: 6;
+    stroke-width: 4;
+}
