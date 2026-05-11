@@ -554,9 +554,68 @@ const MediCore = {
         if (window.lucide) lucide.createIcons();
     },
 
-    handleRowClick: function(patientName) {
-        MediCore.switchTab('patient-details');
+    handleRowClick(patientName) {
+        this.switchTab('patient-details');
+    },
+
+    toggleDropdown(id) {
+        const container = document.getElementById(id);
+        const options = container.querySelector('.dropdown-options-box');
+        const trigger = container.querySelector('.custom-dropdown-trigger');
+        const icon = trigger.querySelector('i');
+        
+        const isOpen = options.classList.contains('show');
+        
+        // Close all other dropdowns first
+        document.querySelectorAll('.dropdown-options-box').forEach(box => box.classList.remove('show'));
+        document.querySelectorAll('.custom-dropdown-trigger').forEach(trig => trig.classList.remove('active'));
+        document.querySelectorAll('.custom-dropdown-trigger i').forEach(i => i.style.transform = 'rotate(0deg)');
+
+        if (!isOpen) {
+            options.classList.add('show');
+            trigger.classList.add('active');
+            icon.style.transform = 'rotate(180deg)';
+        }
+    },
+
+    selectedSymptoms: [],
+    selectSymptom(symptom) {
+        if (this.selectedSymptoms.includes(symptom)) return;
+        
+        this.selectedSymptoms.push(symptom);
+        this.renderSymptomTags();
+    },
+
+    removeSymptom(symptom) {
+        this.selectedSymptoms = this.selectedSymptoms.filter(s => s !== symptom);
+        this.renderSymptomTags();
+    },
+
+    renderSymptomTags() {
+        const container = document.getElementById('selected-symptoms');
+        if (this.selectedSymptoms.length === 0) {
+            container.innerHTML = '<span style="color:#94A3B8; font-weight:500;">Type symptoms</span>';
+            return;
+        }
+        
+        container.innerHTML = this.selectedSymptoms.map(s => `
+            <div class="symptom-tag">
+                ${s}
+                <i data-lucide="x" onclick="event.stopPropagation(); MediCore.removeSymptom('${s}')"></i>
+            </div>
+        `).join('');
+        
+        lucide.createIcons();
     }
 };
+
+// Close dropdowns on outside click
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.custom-dropdown-container')) {
+        document.querySelectorAll('.dropdown-options-box').forEach(box => box.classList.remove('show'));
+        document.querySelectorAll('.custom-dropdown-trigger').forEach(trig => trig.classList.remove('active'));
+        document.querySelectorAll('.custom-dropdown-trigger i').forEach(i => i.style.transform = 'rotate(0deg)');
+    }
+});
 
 MediCore.init();

@@ -69,11 +69,6 @@
                 <i data-lucide="bell" style="width:20px;"></i>
                 <div style="position:absolute; top:12px; right:14px; width:18px; height:18px; background:var(--danger); color:white; border-radius:50%; border:2px solid white; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:800;">5</div>
             </div>
-            <div style="display:flex; align-items:center; gap:12px; margin-left:12px; padding-left:24px; border-left:1px solid #F1F5F9;">
-                <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=100&h=100" style="width:40px; height:40px; border-radius:12px; object-fit:cover;">
-                <div><div style="font-weight:800; font-size:14px; color:#1A1D23;">Amit Verma</div><div style="font-size:11px; color:#64748B; font-weight:700;">Pharmacist</div></div>
-                <i data-lucide="chevron-down" style="width:16px; color:#94A3B8;"></i>
-            </div>
         </div>
     </div>
 
@@ -908,9 +903,23 @@
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px; margin-bottom:24px;">
                     <div class="form-group">
                         <label>Symptoms <span style="color:#EF4444;">*</span></label>
-                        <select class="form-control" style="height:48px; border-radius:8px;">
-                            <option>Select Symptoms</option>
-                        </select>
+                        <div class="custom-dropdown-container" id="symptom-dropdown">
+                            <div class="custom-dropdown-trigger" onclick="MediCore.toggleDropdown('symptom-dropdown')">
+                                <div class="selected-items" id="selected-symptoms">
+                                    <span style="color:#94A3B8; font-weight:500;">Type symptoms</span>
+                                </div>
+                                <i data-lucide="chevron-down" style="width:18px; color:#94A3B8; transition:0.3s;"></i>
+                            </div>
+                            <div class="dropdown-options-box">
+                                <div class="option-item" onclick="MediCore.selectSymptom('Fever')">Fever</div>
+                                <div class="option-item" onclick="MediCore.selectSymptom('Headache')">Headache</div>
+                                <div class="option-item" onclick="MediCore.selectSymptom('Body Pain')">Body Pain</div>
+                                <div class="option-item" onclick="MediCore.selectSymptom('Fatigue')">Fatigue</div>
+                                <div class="option-item" onclick="MediCore.selectSymptom('Weakness')">Weakness</div>
+                                <div class="option-item" onclick="MediCore.selectSymptom('Cough')">Cough</div>
+                                <div class="option-item" onclick="MediCore.selectSymptom('Nausea')">Nausea</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Suggested Department <span style="color:#EF4444;">*</span></label>
@@ -918,7 +927,7 @@
                     </div>
                 </div>
 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px; margin-bottom:40px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:24px; margin-bottom:24px;">
                     <div class="form-group">
                         <label>Department <span style="color:#EF4444;">*</span></label>
                         <select class="form-control" style="height:48px; border-radius:8px;">
@@ -931,10 +940,138 @@
                             <option>Dr. Ankit Sharma</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>Consultation Type <span style="color:#EF4444;">*</span></label>
+                        <select class="form-control" style="height:48px; border-radius:8px;">
+                            <option>First Visit</option>
+                            <option>Follow Up</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div style="display:flex; justify-content:flex-end;">
-                    <button class="btn btn-primary" style="width:300px; height:54px; font-weight:800; font-size:16px; border-radius:10px; justify-content:center;" onclick="MediCore.switchTab('patient-details')">Confirm Appointment</button>
+                <div class="doc-detail-card">
+                    <div style="display:flex; align-items:center; gap:16px; flex:1.5;">
+                        <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=200" style="width:54px; height:54px; border-radius:10px; object-fit:cover;">
+                        <div>
+                            <div style="font-weight:800; color:#1A1D23;">Dr. Ankit Sharma</div>
+                            <div style="font-size:11px; color:#64748B; font-weight:600;">MBBS, MD (Medicine) | General Medicine</div>
+                        </div>
+                    </div>
+                    <div class="doc-detail-stat">
+                        <div style="font-size:10px; color:#64748B; font-weight:700; margin-bottom:4px;">Experience</div>
+                        <div style="font-weight:700; font-size:13px;">10+ Years</div>
+                    </div>
+                    <div class="doc-detail-stat">
+                        <div style="font-size:10px; color:#64748B; font-weight:700; margin-bottom:4px;">Consultation Fee</div>
+                        <div style="font-weight:800; font-size:13px; color:#10B981;">₹500</div>
+                    </div>
+                    <div class="doc-detail-stat">
+                        <div style="font-size:10px; color:#64748B; font-weight:700; margin-bottom:4px;">Current Queue</div>
+                        <div style="font-weight:700; font-size:13px;">8 Patients</div>
+                    </div>
+                    <div class="doc-detail-stat">
+                        <div style="font-size:10px; color:#64748B; font-weight:700; margin-bottom:4px;">Est. Wait Time</div>
+                        <div style="font-weight:800; font-size:13px; color:#10B981; display:flex; align-items:center; gap:4px;">
+                            <i data-lucide="clock" style="width:14px;"></i> 20 - 25 mins
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:48px;">
+                    <label style="display:block; font-size:13px; font-weight:700; margin-bottom:12px; color:#64748B;">Select Slot / Queue</label>
+                    <div class="slot-toggle-group" style="width:300px;">
+                        <div class="slot-toggle-btn active">Book Slot</div>
+                        <div class="slot-toggle-btn">Join Queue</div>
+                    </div>
+                    
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <button class="action-icon-btn" style="border:1px solid #E2E8F0;"><i data-lucide="chevron-left" style="width:18px;"></i></button>
+                        <div class="time-grid">
+                            <div class="time-chip available">
+                                <div style="font-size:13px; font-weight:700;">10:00 AM</div>
+                                <div style="font-size:10px; font-weight:600;">Available</div>
+                            </div>
+                            <div class="time-chip available">
+                                <div style="font-size:13px; font-weight:700;">10:15 AM</div>
+                                <div style="font-size:10px; font-weight:600;">Available</div>
+                            </div>
+                            <div class="time-chip selected">
+                                <div style="font-size:13px; font-weight:700;">10:30 AM</div>
+                                <div style="font-size:10px; font-weight:600;">Selected</div>
+                            </div>
+                            <div class="time-chip available">
+                                <div style="font-size:13px; font-weight:700;">10:45 AM</div>
+                                <div style="font-size:10px; font-weight:600;">Available</div>
+                            </div>
+                            <div class="time-chip available">
+                                <div style="font-size:13px; font-weight:700;">11:00 AM</div>
+                                <div style="font-size:10px; font-weight:600;">Available</div>
+                            </div>
+                        </div>
+                        <button class="action-icon-btn" style="border:1px solid #E2E8F0;"><i data-lucide="chevron-right" style="width:18px;"></i></button>
+                    </div>
+                    <div style="display:flex; gap:24px; margin-top:16px;">
+                        <div style="font-size:12px; color:#64748B; font-weight:700; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="calendar" style="width:16px; color:var(--primary);"></i> 24 May 2024 (Today)
+                        </div>
+                        <div style="font-size:12px; color:#64748B; font-weight:700; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="clock" style="width:16px; color:var(--primary);"></i> 10:30 AM - 10:45 AM
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: Billing & Payment -->
+                <div style="display:flex; align-items:center; gap:16px; margin-bottom:32px;">
+                    <div style="width:32px; height:32px; border-radius:50%; background:#3B82F6; color:white; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px;">4</div>
+                    <h2 style="font-size:18px; font-weight:800; color:#1A1D23;">Billing & Payment</h2>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 280px 1fr; gap:40px; margin-bottom:48px;">
+                    <div class="billing-summary">
+                        <div class="billing-row"><span>Consultation Fee</span> <span>₹500.00</span></div>
+                        <div class="billing-row"><span>Registration Fee</span> <span>₹50.00</span></div>
+                        <div class="billing-total"><span>Total Amount</span> <span>₹550.00</span></div>
+                    </div>
+                    
+                    <div>
+                        <label style="display:block; font-size:13px; font-weight:700; margin-bottom:12px; color:#64748B;">Payment Method <span style="color:#EF4444;">*</span></label>
+                        <div class="payment-grid" style="margin-bottom:24px;">
+                            <div class="pay-btn active"><i data-lucide="check-circle"></i> Cash</div>
+                            <div class="pay-btn"><i data-lucide="smartphone"></i> UPI</div>
+                            <div class="pay-btn"><i data-lucide="credit-card"></i> Card</div>
+                            <div class="pay-btn"><i data-lucide="shield"></i> Insurance</div>
+                            <div class="pay-btn"><i data-lucide="more-horizontal"></i> Other</div>
+                        </div>
+                        
+                        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px;">
+                            <div class="form-group">
+                                <label>Payment Status</label>
+                                <div style="height:48px; background:#ECFDF5; border:1px solid #10B981; border-radius:8px; display:flex; align-items:center; gap:8px; padding:0 16px; color:#059669; font-weight:700; font-size:13px;">
+                                    <i data-lucide="check-circle" style="width:16px;"></i> Paid
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Received Amount</label>
+                                <input type="text" class="form-control" value="550.00" style="height:48px; border-radius:8px; font-weight:700;">
+                            </div>
+                            <div class="form-group">
+                                <label>Balance</label>
+                                <div style="height:48px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; display:flex; align-items:center; padding:0 16px; color:#1A1D23; font-weight:800; font-size:14px;">
+                                    ₹0.00
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; gap:20px;">
+                    <div style="display:flex; gap:12px; flex:1;">
+                        <button class="btn btn-secondary" style="height:54px; flex:1; justify-content:center; font-weight:700; border-radius:10px;">Save as Draft</button>
+                        <button class="btn btn-secondary" style="height:54px; flex:1; justify-content:center; font-weight:700; border-radius:10px;">Reset</button>
+                    </div>
+                    <button class="btn btn-primary" style="width:400px; height:54px; font-weight:800; font-size:16px; border-radius:10px; justify-content:center; gap:12px;" onclick="MediCore.switchTab('patient-details')">
+                        <i data-lucide="qr-code"></i> Confirm & Generate Token
+                    </button>
                 </div>
             </div>
         </div>
