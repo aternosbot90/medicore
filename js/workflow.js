@@ -221,346 +221,316 @@ const MediCore = {
         }).join('');
     },
 
+    // 7-PAGE NAVIGATION & FLOW
     setupNavigation: () => {
         document.querySelectorAll('.nav-link').forEach(link => {
             link.onclick = (e) => {
-                if (!link.dataset.tab) return;
+                const tabId = link.dataset.tab;
+                if (!tabId) return;
                 e.preventDefault();
+                
+                // If switching away from consultation, hide the consultation nav link if it's not active
+                if (tabId !== 'consultation') {
+                    // document.getElementById('nav-consultation').style.display = 'none';
+                }
+
                 document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-                document.getElementById(link.dataset.tab).classList.add('active');
+                
+                const targetTab = document.getElementById(tabId);
+                if (targetTab) targetTab.classList.add('active');
                 link.classList.add('active');
+                
                 if (window.lucide) lucide.createIcons();
+                
+                // Refresh specific tab data
+                if (tabId === 'livequeue') MediCore.renderFullQueue();
+                if (tabId === 'dash') MediCore.renderDashboardData();
             };
         });
     },
 
-    // EMERGENCY FLOW LOGIC
-    handleRowClick: (name) => {
-        if(window.location.href.includes('doctor.html')) {
-            MediCore.openConsultation('#MC-9921', name);
-        } else {
-            MediCore.viewPatientProfile(name);
+    // DASHBOARD & QUEUE DATA
+    mockQueue: [
+        { id: 'A-42', name: 'Johnathan Doe', age: 42, gender: 'Male', wait: '12 min', status: 'Waiting', abha: '91-8821-2291-0112' },
+        { id: 'A-43', name: 'Sarah Jenkins', age: 31, gender: 'Female', wait: '18 min', status: 'Waiting', abha: '91-1234-5678-9012' },
+        { id: 'A-44', name: 'Robert Smith', age: 55, gender: 'Male', wait: '5 min', status: 'Waiting', abha: '91-9876-5432-1098' },
+        { id: 'A-45', name: 'Emily Davis', age: 28, gender: 'Female', wait: '22 min', status: 'Waiting', abha: '91-5544-3322-1100' },
+        { id: 'A-46', name: 'Michael Brown', age: 47, gender: 'Male', wait: '10 min', status: 'Waiting', abha: '91-1122-3344-5566' }
+    ],
+
+    renderDashboardData: () => {
+        // Render Top 5 Appointments
+        const topList = document.getElementById('topAppointmentsList');
+        if (topList) {
+            topList.innerHTML = MediCore.mockQueue.slice(0, 5).map(p => `
+                <tr>
+                    <td style="color:var(--primary); font-weight:700;">10:30 AM</td>
+                    <td><b>${p.name}</b></td>
+                    <td>#${p.id}</td>
+                    <td><span class="status-badge available">Confirmed</span></td>
+                </tr>
+            `).join('');
+        }
+
+        // Render Live Queue Panel (Right side)
+        const queuePanel = document.getElementById('liveQueuePanel');
+        if (queuePanel) {
+            queuePanel.innerHTML = MediCore.mockQueue.slice(0, 3).map(p => `
+                <div style="padding:16px; background:var(--bg-main); border-radius:16px; border:1px solid var(--border);">
+                    <div class="flex-between" style="margin-bottom:8px;">
+                        <span style="font-weight:800; font-size:14px;">#${p.id} | ${p.name}</span>
+                        <span style="font-size:11px; color:var(--text-muted); font-weight:700;">${p.wait}</span>
+                    </div>
+                    <div class="flex-between">
+                        <span style="font-size:11px; color:var(--text-muted);">${p.age} yrs • ${p.gender}</span>
+                        <button class="btn btn-primary" style="padding:4px 12px; font-size:11px;" onclick="MediCore.startConsultation('${p.id}')">Start</button>
+                    </div>
+                </div>
+            `).join('');
         }
     },
 
-    viewPatientProfile: (name) => {
-        const overlay = document.getElementById('profileOverlay') || document.getElementById('registrationModal'); // Reuse overlay if needed or create new
-        // For simplicity, I'll use the registrationModal but clear it for profile view if it exists, 
-        // but better to have a dedicated profile modal.
+    renderFullQueue: () => {
+        const fullList = document.getElementById('fullLiveQueueList');
+        if (!fullList) return;
+        fullList.innerHTML = MediCore.mockQueue.map(p => `
+            <tr>
+                <td><b>#${p.id}</b></td>
+                <td><b>${p.name}</b></td>
+                <td>${p.age} / ${p.gender}</td>
+                <td>${p.wait}</td>
+                <td><span class="status-badge pending">${p.status}</span></td>
+                <td><button class="btn btn-primary" onclick="MediCore.startConsultation('${p.id}')">Start Consultation</button></td>
+            </tr>
+        `).join('');
+    },
+
+    // CONSULTATION FLOW
+    startNextConsultation: () => {
+        if (MediCore.mockQueue.length > 0) {
+            MediCore.startConsultation(MediCore.mockQueue[0].id);
+        }
+    },
+
+    startConsultation: (patientId) => {
+        const patient = MediCore.mockQueue.find(p => p.id === patientId);
+        if (!patient) return;
+
+        // Show Consultation Tab in Sidebar
+        const navCons = document.getElementById('nav-consultation');
+        navCons.style.display = 'flex';
         
-        // I will create a dynamic modal for patient detail
-        let modal = document.getElementById('patientDetailModal');
-        if(!modal) {
-            modal = document.createElement('div');
-            modal.id = 'patientDetailModal';
-            modal.className = 'modal-overlay';
-            document.body.appendChild(modal);
+        // Update Consultation UI with patient data
+        document.getElementById('activePatientName').innerText = patient.name;
+        document.getElementById('activePatientMeta').innerText = `${patient.age} yrs • ${patient.gender} • Token #${patient.id} • ABHA ID: ${patient.abha}`;
+        
+        // Switch to Consultation Tab
+        navCons.click();
+        
+        // Reset Prescription Builder
+        MediCore.consultationMeds = [
+            { name: "Amlodipine 5mg", dosage: "1 tab", freq: "1-0-1", dur: "30 Days", instr: "After food" }
+        ];
+        MediCore.renderConsultationPrescription();
+    },
+
+    consultationMeds: [],
+    renderConsultationPrescription: () => {
+        const tbody = document.getElementById('consultationPrescriptionBody');
+        if (!tbody) return;
+        tbody.innerHTML = MediCore.consultationMeds.map((m, i) => `
+            <tr>
+                <td><input type="text" class="form-control" value="${m.name}" style="border:none; background:transparent; font-weight:700;"></td>
+                <td><input type="text" class="form-control" value="${m.dosage}" style="border:none; background:transparent;"></td>
+                <td><input type="text" class="form-control" value="${m.freq}" style="border:none; background:transparent;"></td>
+                <td><input type="text" class="form-control" value="${m.dur}" style="border:none; background:transparent;"></td>
+                <td><input type="text" class="form-control" value="${m.instr}" style="border:none; background:transparent;"></td>
+                <td><button class="btn" style="color:var(--danger);" onclick="MediCore.removeMedicineRow(${i})"><i data-lucide="trash-2" style="width:16px;"></i></button></td>
+            </tr>
+        `).join('');
+        if (window.lucide) lucide.createIcons();
+    },
+
+    addMedicineRow: () => {
+        MediCore.consultationMeds.push({ name: "", dosage: "", freq: "", dur: "", instr: "" });
+        MediCore.renderConsultationPrescription();
+    },
+
+    removeMedicineRow: (i) => {
+        MediCore.consultationMeds.splice(i, 1);
+        MediCore.renderConsultationPrescription();
+    },
+
+    saveConsultationDraft: () => {
+        alert("Consultation draft saved successfully.");
+    },
+
+    finalizeConsultation: () => {
+        const patientName = document.getElementById('activePatientName').innerText;
+        const prescription = {
+            id: 'RX-' + Math.floor(Math.random() * 9000 + 1000),
+            doctor: 'Dr. Andrew Clark',
+            patient: patientName,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            date: new Date().toLocaleDateString(),
+            medicines: MediCore.consultationMeds.filter(m => m.name !== '')
+        };
+
+        // Save to localStorage for Pharmacy real-time flow
+        const pendingRx = JSON.parse(localStorage.getItem('mc_pending_prescriptions') || '[]');
+        pendingRx.unshift(prescription);
+        localStorage.setItem('mc_pending_prescriptions', JSON.stringify(pendingRx));
+
+        alert("Prescription sent to Pharmacy successfully! Redirecting to Dashboard...");
+        
+        // Hide consultation nav and go back to dashboard
+        document.getElementById('nav-consultation').style.display = 'none';
+        document.querySelector('[data-tab=dash]').click();
+
+        // Trigger custom event for real-time simulation if pharmacy page is open in another tab
+        window.dispatchEvent(new Event('storage'));
+    },
+
+    // PHARMACY REAL-TIME SYNC
+    renderPharmacyPending: () => {
+        const grid = document.getElementById('pendingPrescriptionGrid');
+        if (!grid) return;
+        
+        const pendingRx = JSON.parse(localStorage.getItem('mc_pending_prescriptions') || '[]');
+        
+        if (pendingRx.length === 0) {
+            grid.innerHTML = '<div style="grid-column: span 2; padding: 40px; text-align:center; color:var(--text-muted);">No pending prescriptions from doctors.</div>';
+            return;
         }
 
-        modal.innerHTML = `
-            <div class="modal-box" style="width: 800px; padding:0;">
-                <div style="background:var(--primary-gradient); padding:32px; color:white; display:flex; align-items:center; justify-content:space-between;">
-                    <div style="display:flex; align-items:center; gap:20px;">
-                        <div style="width:64px; height:64px; border-radius:16px; background:rgba(255,255,255,0.2); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:800;">
-                            ${name.charAt(0)}
-                        </div>
+        grid.innerHTML = pendingRx.map(rx => `
+            <div class="glass-card animate-in" style="padding:24px; border-left:4px solid var(--primary);">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width:36px; height:36px; border-radius:50%; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center;"><i data-lucide="user"></i></div>
                         <div>
-                            <h2 style="font-size:24px; font-weight:800;">${name}</h2>
-                            <p style="opacity:0.8;">Patient Profile | ID: #MC-${Math.floor(Math.random()*9000)+1000}</p>
+                            <div style="font-weight:800; font-size:14px;">${rx.doctor}</div>
+                            <div style="font-size:11px; color:var(--text-muted);">Patient: ${rx.patient}</div>
                         </div>
                     </div>
-                    <button class="btn" style="background:rgba(255,255,255,0.2); color:white;" onclick="document.getElementById('patientDetailModal').style.display='none'">
-                        <i data-lucide="x"></i>
-                    </button>
+                    <span style="font-size:11px; color:var(--text-muted); font-weight:700;">${rx.time}</span>
                 </div>
-                <div style="padding:32px; display:grid; grid-template-columns: 1fr 280px; gap:32px;">
-                    <div>
-                        <h3 style="margin-bottom:16px; font-size:16px;"><i data-lucide="activity"></i> Clinical Snapshot</h3>
-                        <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom:24px;">
-                            <div class="vital-input"><label>Blood Pressure</label><b>128/84</b></div>
-                            <div class="vital-input"><label>Pulse</label><b>76 bpm</b></div>
-                            <div class="vital-input"><label>SPO2</label><b>98%</b></div>
-                            <div class="vital-input"><label>Temp</label><b>98.4 F</b></div>
-                        </div>
-
-                        <h3 style="margin-bottom:16px; font-size:16px;"><i data-lucide="history"></i> Medical Timeline</h3>
-                        <div style="border-left:2px solid var(--border); padding-left:20px; margin-left:10px;">
-                            <div style="position:relative; margin-bottom:20px;">
-                                <div style="position:absolute; left:-27px; top:0; width:12px; height:12px; border-radius:50%; background:var(--primary);"></div>
-                                <div style="font-size:12px; font-weight:700;">TODAY - 02:30 PM</div>
-                                <div style="font-size:14px;">Consultation with Dr. William Harrison (Cardiology)</div>
+                
+                <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:24px;">
+                    ${rx.medicines.map(m => `
+                        <div class="flex-between" style="background:#F8FAFC; padding:10px 16px; border-radius:12px;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <i data-lucide="pill" style="width:14px; color:var(--text-muted);"></i>
+                                <span style="font-size:13px; font-weight:600;">${m.name} - ${m.dur}</span>
                             </div>
-                            <div style="position:relative; margin-bottom:20px;">
-                                <div style="position:absolute; left:-27px; top:0; width:12px; height:12px; border-radius:50%; background:var(--border);"></div>
-                                <div style="font-size:12px; font-weight:700;">MAY 05, 2025</div>
-                                <div style="font-size:14px;">Laboratory: Lipid Profile Report Uploaded</div>
-                            </div>
+                            <span class="status-badge available" style="font-size:11px;">In Stock</span>
                         </div>
-                    </div>
-                    <div style="border-left:1px solid var(--border); padding-left:32px;">
-                        <h3 style="margin-bottom:16px; font-size:16px;">Quick Actions</h3>
-                        <button class="btn btn-primary" style="width:100%; margin-bottom:12px; justify-content:center;"><i data-lucide="calendar"></i> Reschedule</button>
-                        <button class="btn btn-secondary" style="width:100%; margin-bottom:12px; justify-content:center;"><i data-lucide="file-text"></i> View Reports</button>
-                        <button class="btn btn-secondary" style="width:100%; margin-bottom:12px; justify-content:center;"><i data-lucide="credit-card"></i> Pay Dues</button>
-                        <div style="margin-top:24px; padding:16px; background:var(--bg-main); border-radius:12px; text-align:center;">
-                            <div style="font-size:11px; font-weight:700; color:var(--text-muted);">ABHA LINKED</div>
-                            <div style="font-size:14px; font-weight:800; color:var(--success);">91-8821-2291-0112</div>
-                        </div>
-                    </div>
+                    `).join('')}
                 </div>
-            </div>
-        `;
-        modal.style.display = 'flex';
-        if(window.lucide) lucide.createIcons();
-    },
-
-    viewDoctorSchedule: (doctorName) => {
-        let modal = document.getElementById('doctorScheduleModal');
-        if(!modal) {
-            modal = document.createElement('div');
-            modal.id = 'doctorScheduleModal';
-            modal.className = 'modal-overlay';
-            document.body.appendChild(modal);
-        }
-
-        const apps = MediCore.getAppointments().filter(a => a.doctor === doctorName);
-        const appListHtml = apps.length > 0 
-            ? apps.map(a => `
-                <div style="padding:16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-                    <div>
-                        <div style="font-weight:800;">${a.patient}</div>
-                        <div style="font-size:12px; color:var(--text-muted);">${a.time}</div>
-                    </div>
-                    <span class="status-badge available" style="font-size:10px;">${a.status}</span>
-                </div>
-            `).join('')
-            : '<div style="padding:40px; text-align:center; color:var(--text-muted);">No appointments found for today.</div>';
-
-        modal.innerHTML = `
-            <div class="modal-box" style="width: 500px; padding:0;">
-                <div style="padding:24px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:space-between;">
-                    <h2 style="font-weight:800; font-size:20px;">Schedule: ${doctorName}</h2>
-                    <button class="btn btn-secondary" onclick="document.getElementById('doctorScheduleModal').style.display='none'"><i data-lucide="x"></i></button>
-                </div>
-                <div style="max-height:400px; overflow-y:auto;">
-                    ${appListHtml}
-                </div>
-                <div style="padding:24px; border-top:1px solid var(--border); text-align:center;">
-                    <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="document.getElementById('doctorScheduleModal').style.display='none'; MediCore.openRegistration()">Book New Slot</button>
-                </div>
-            </div>
-        `;
-        modal.style.display = 'flex';
-        if(window.lucide) lucide.createIcons();
-    },
-
-    openEmergencyModal: () => {
-        document.getElementById('emergencyModal').style.display = 'flex';
-        MediCore.resetEmergencyForm();
-    },
-    closeEmergencyModal: () => {
-        document.getElementById('emergencyModal').style.display = 'none';
-    },
-    resetEmergencyForm: () => {
-        document.getElementById('emergencyStep1').style.display = 'block';
-        document.getElementById('emergencyStep2').style.display = 'none';
-        document.getElementById('eName').value = '';
-        document.getElementById('eAge').value = '';
-        document.getElementById('eComplaint').value = '';
-        MediCore.selectedVariant = null;
-        document.querySelectorAll('.emergency-variant-card').forEach(c => c.classList.remove('selected'));
-        document.getElementById('btnConfirmEmergency').disabled = true;
-    },
-    nextEmergencyStep: () => {
-        if(!document.getElementById('eName').value) { alert("Please enter patient name"); return; }
-        document.getElementById('emergencyStep1').style.display = 'none';
-        document.getElementById('emergencyStep2').style.display = 'block';
-        if(window.lucide) lucide.createIcons();
-    },
-    prevEmergencyStep: () => {
-        document.getElementById('emergencyStep1').style.display = 'block';
-        document.getElementById('emergencyStep2').style.display = 'none';
-    },
-    selectVariant: (v) => {
-        MediCore.selectedVariant = v;
-        document.querySelectorAll('.emergency-variant-card').forEach(c => c.classList.remove('selected'));
-        document.getElementById('variant' + v).classList.add('selected');
-        document.getElementById('btnConfirmEmergency').disabled = false;
-    },
-    confirmEmergency: () => {
-        const name = document.getElementById('eName').value;
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const status = MediCore.selectedVariant === 'TreatFirst' ? 'Critical' : 'Paid';
-        
-        MediCore.saveAppointment(name, "Emergency Unit", time, status);
-        alert(`Emergency Registered: ${MediCore.selectedVariant} Flow Activated`);
-        MediCore.closeEmergencyModal();
-        MediCore.renderHospitalSchedule('receptionSchedule');
-        if(window.lucide) lucide.createIcons();
-    },
-
-    // REGISTRATION LOGIC
-    openRegistration: () => {
-        document.getElementById('registrationModal').style.display = 'flex';
-    },
-    saveRegistration: () => {
-        const name = document.getElementById('regName').value;
-        const phone = document.getElementById('regPhone').value;
-        const age = document.getElementById('regAge').value;
-        
-        if(!name || !phone) {
-            alert("Please enter Name and Phone Number");
-            return;
-        }
-
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        MediCore.saveAppointment(name, "Dr. William Harrison", time, "Confirmed");
-        
-        alert(`Patient ${name} registered successfully! Token generated for Dr. William Harrison.`);
-        document.getElementById('registrationModal').style.display = 'none';
-        
-        // Reset form
-        document.getElementById('regName').value = "";
-        document.getElementById('regPhone').value = "";
-        document.getElementById('regAge').value = "";
-        
-        MediCore.renderHospitalSchedule('receptionistQueue');
-    },
-
-    // EMERGENCY ALERTS FOR DOCTOR
-    renderEmergencyAlerts: () => {
-        const target = document.getElementById('emergencyAlertSection');
-        if(!target) return;
-        
-        const apps = MediCore.getAppointments();
-        const criticalApps = apps.filter(a => a.status === 'Critical' || a.doctor === 'Emergency Unit');
-        
-        if(criticalApps.length === 0) {
-            target.innerHTML = '';
-            return;
-        }
-
-        target.innerHTML = criticalApps.map(app => `
-            <div class="emergency-alert-banner animate-in">
-                <div style="display:flex; align-items:center; gap:24px;">
-                    <div style="width:64px; height:64px; border-radius:18px; background:#DC2626; color:white; display:flex; align-items:center; justify-content:center; box-shadow: 0 8px 16px rgba(220, 38, 38, 0.3);">
-                        <i data-lucide="alert-triangle" style="width:32px; height:32px;"></i>
-                    </div>
-                    <div>
-                        <h3 style="color:#991B1B; font-weight:800; font-size:20px; margin-bottom:4px;">CRITICAL EMERGENCY: ${app.patient}</h3>
-                        <p style="color:#B91C1C; font-size:15px; opacity:0.9;">Incoming at ${app.time} • Patient is in the Emergency Unit</p>
-                    </div>
-                </div>
-                <button class="btn btn-emergency" style="padding:16px 32px; background:#DC2626; font-size:15px; border-radius:14px; box-shadow: 0 8px 20px rgba(220, 38, 38, 0.4);" onclick="MediCore.openConsultation('${app.id}', '${app.patient}')">
-                    Attend Immediately
+                
+                <button class="btn btn-primary" style="width:100%; justify-content:center; height:48px;" onclick="MediCore.processPrescriptionUI('${rx.id}')">
+                    Process & Dispense
                 </button>
             </div>
         `).join('');
-        if(window.lucide) lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
-    // CONSULTATION LOGIC
-    openConsultation: (id, name) => {
-        const modal = document.getElementById('consultationModal');
-        if(!modal) return;
-        document.getElementById('cPatientName').innerText = "Consultation: " + name;
-        document.getElementById('cPatientMeta').innerText = "ID: #MC-9921 | Age: 42 | Gender: Male";
-        modal.style.display = 'flex';
-        MediCore.renderPrescription();
-    },
-    closeConsultation: () => {
-        document.getElementById('consultationModal').style.display = 'none';
-    },
-    prescriptions: [
-        { name: "Amlodipine", dosage: "5mg", freq: "1-0-1", dur: "30 Days" },
-        { name: "Atorvastatin", dosage: "20mg", freq: "0-0-1", dur: "30 Days" }
-    ],
-    renderPrescription: () => {
-        const tbody = document.getElementById('prescriptionBody');
-        if(!tbody) return;
-        tbody.innerHTML = MediCore.prescriptions.map((p, index) => `
-            <tr>
-                <td><input type="text" class="form-control" value="${p.name}" style="border:none; background:transparent; font-weight:700;"></td>
-                <td><input type="text" class="form-control" value="${p.dosage}" style="border:none; background:transparent;"></td>
-                <td><input type="text" class="form-control" value="${p.freq}" style="border:none; background:transparent;"></td>
-                <td><input type="text" class="form-control" value="${p.dur}" style="border:none; background:transparent;"></td>
-                <td><button class="btn" style="color:var(--danger); padding:4px;" onclick="MediCore.removePrescriptionRow(${index})"><i data-lucide="trash-2" style="width:18px;"></i></button></td>
-            </tr>
-        `).join('');
-        if(window.lucide) lucide.createIcons();
-    },
-    addPrescriptionRow: () => {
-        MediCore.prescriptions.push({ name: "", dosage: "", freq: "", dur: "" });
-        MediCore.renderPrescription();
-    },
-    removePrescriptionRow: (index) => {
-        MediCore.prescriptions.splice(index, 1);
-        MediCore.renderPrescription();
-    },
-    finalizeConsultation: () => {
-        alert("Consultation Finalized. Digital Prescription sent to Pharmacy and saved to Patient Vault.");
-        MediCore.closeConsultation();
-    },
-
-    // PHARMACY LOGIC
-    processPrescription: (id, name) => {
+    processPrescriptionUI: (rxId) => {
+        // In a real app, find rx from storage or API
         const modal = document.getElementById('pharmacyModal');
-        if(!modal) return;
-        document.getElementById('pPatientName').innerText = "Process Rx: " + name;
-        document.getElementById('pPatientId').innerText = "Patient ID: #MC-" + (Math.floor(Math.random()*9000)+1000);
-        
-        const medList = document.getElementById('pMedList');
-        // Simulate meds and clinical context from doctor
-        const meds = [
-            { name: "Amlodipine 5mg", qty: "30 Tabs", stock: 450, status: "Low Stock" },
-            { name: "Atorvastatin 20mg", qty: "15 Tabs", stock: 820, status: "In Stock" }
-        ];
-
-        medList.innerHTML = `
-            <div style="background:var(--bg-main); border-radius:16px; padding:16px; margin-bottom:20px; border:1px solid var(--border);">
-                <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:4px;">DOCTOR'S DIAGNOSIS</div>
-                <div style="font-weight:700; color:var(--danger);">Hypertension & Hyperlipidemia</div>
-            </div>
-        ` + meds.map(m => `
-            <div style="background:white; border:1px solid var(--border); border-radius:16px; padding:20px; display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <div style="font-weight:800; font-size:16px;">${m.name}</div>
-                    <div style="font-size:12px; color:var(--text-muted);">Quantity: ${m.qty}</div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="font-size:11px; font-weight:700; margin-bottom:4px; color:${m.stock < 500 ? '#D97706' : '#059669'}">
-                        STOCK: ${m.stock}
-                    </div>
-                    <span class="stock-alert ${m.stock < 500 ? 'low' : 'available'}" style="font-size:10px;">${m.status}</span>
-                </div>
-            </div>
-        `).join('');
-
+        if (!modal) return;
         modal.style.display = 'flex';
-        if(window.lucide) lucide.createIcons();
-    },
-    completePharmacyFlow: () => {
-        alert("Medicines Dispensed. Invoice Generated. Inventory Updated.");
-        document.getElementById('pharmacyModal').style.display = 'none';
+        
+        // Handle Payment Method Selection UI
+        const opts = document.querySelectorAll('.payment-opt');
+        opts.forEach(opt => {
+            opt.parentElement.onclick = () => {
+                opts.forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                // Simple style toggle
+                opts.forEach(o => {
+                    o.style.borderColor = 'var(--border)';
+                    o.style.background = 'transparent';
+                });
+                opt.style.borderColor = 'var(--primary)';
+                opt.style.background = 'var(--primary-light)';
+                opt.parentElement.querySelector('input').checked = true;
+            };
+        });
+
+        if (window.lucide) lucide.createIcons();
     },
 
+    completePharmacyFlow: (rxId) => {
+        const modal = document.getElementById('pharmacyModal');
+        const invoice = document.getElementById('invoiceModal');
+        
+        if (modal) modal.style.display = 'none';
+        if (invoice) invoice.style.display = 'flex';
+        
+        if (window.lucide) lucide.createIcons();
+
+        // Simulate storage update if rxId exists
+        if (rxId) {
+            let pendingRx = JSON.parse(localStorage.getItem('mc_pending_prescriptions') || '[]');
+            pendingRx = pendingRx.filter(r => r.id !== rxId);
+            localStorage.setItem('mc_pending_prescriptions', JSON.stringify(pendingRx));
+            if (MediCore.renderPharmacyPending) MediCore.renderPharmacyPending();
+        }
+    },
+
+    // INITIALIZATION
     init: () => {
         setInterval(() => {
             const clock = document.getElementById('liveClock');
-            if (clock) clock.innerText = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (clock) {
+                const now = new Date();
+                clock.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
         }, 1000);
 
         window.onload = () => {
             if (window.lucide) lucide.createIcons();
-            MediCore.renderAvailability('availabilityList');
-            MediCore.renderHospitalSchedule('receptionSchedule');
-            MediCore.renderHospitalSchedule('doctorScheduleList', 'Dr. William Harrison');
-            MediCore.renderEmergencyAlerts();
+            MediCore.setupNavigation();
             
-            // Poll for emergencies every 5 seconds (simulated WebSocket)
-            setInterval(MediCore.renderEmergencyAlerts, 5000);
+            // Auto-load dashboard or pharmacy data based on page
+            if (document.getElementById('dash') && window.location.href.includes('doctor.html')) {
+                MediCore.renderDashboardData();
+            }
+            if (document.getElementById('pendingPrescriptionGrid') && window.location.href.includes('pharmacy.html')) {
+                MediCore.renderPharmacyPending();
+                // Simulated WebSocket: Listen for storage changes
+                window.addEventListener('storage', () => {
+                    MediCore.renderPharmacyPending();
+                });
+            }
+
+            // Messages simulation
+            const chatBox = document.getElementById('clinicalChatMessages');
+            if (chatBox) {
+                chatBox.innerHTML = `
+                    <div style="padding:16px; margin:8px; background:white; border-radius:12px; align-self:flex-start; max-width:80%; border:1px solid var(--border);">
+                        <b>Receptionist:</b> Dr. Clark, Patient Johnathan is waiting at the desk. Should I send him in?
+                    </div>
+                    <div style="padding:16px; margin:8px; background:var(--primary-light); color:var(--primary); border-radius:12px; align-self:flex-end; max-width:80%; font-weight:600;">
+                        Yes, please send him in 2 minutes.
+                    </div>
+                `;
+            }
         };
+    },
+
+    // Consultation Tab Switching (Internal)
+    switchConsultTab: function(tabBtn, contentId) {
+        document.querySelectorAll('.consult-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.consult-content').forEach(c => c.classList.remove('active'));
+
+        tabBtn.classList.add('active');
+        document.getElementById(contentId).classList.add('active');
+        
+        if (window.lucide) lucide.createIcons();
     }
 };
 
