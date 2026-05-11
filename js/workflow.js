@@ -222,30 +222,42 @@ const MediCore = {
     },
 
     // 7-PAGE NAVIGATION & FLOW
+    switchTab: (tabId) => {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        
+        // Remove active class from all nav links
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+
+        // Show target tab
+        const targetTab = document.getElementById(tabId);
+        if (targetTab) {
+            targetTab.classList.add('active');
+            
+            // Try to find and activate corresponding sidebar link
+            const correspondingLink = document.querySelector(`.nav-link[data-tab="${tabId}"]`);
+            if (correspondingLink) {
+                correspondingLink.classList.add('active');
+            }
+        }
+
+        if (window.lucide) lucide.createIcons();
+        
+        // Refresh specific tab data
+        if (tabId === 'livequeue') MediCore.renderFullQueue();
+        if (tabId === 'dash') MediCore.renderDashboardData();
+        
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+
     setupNavigation: () => {
         document.querySelectorAll('.nav-link').forEach(link => {
             link.onclick = (e) => {
                 const tabId = link.dataset.tab;
                 if (!tabId) return;
                 e.preventDefault();
-                
-                // If switching away from consultation, hide the consultation nav link if it's not active
-                if (tabId !== 'consultation') {
-                    // document.getElementById('nav-consultation').style.display = 'none';
-                }
-
-                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-                
-                const targetTab = document.getElementById(tabId);
-                if (targetTab) targetTab.classList.add('active');
-                link.classList.add('active');
-                
-                if (window.lucide) lucide.createIcons();
-                
-                // Refresh specific tab data
-                if (tabId === 'livequeue') MediCore.renderFullQueue();
-                if (tabId === 'dash') MediCore.renderDashboardData();
+                MediCore.switchTab(tabId);
             };
         });
     },
@@ -522,7 +534,6 @@ const MediCore = {
         };
     },
 
-    // Consultation Tab Switching (Internal)
     switchConsultTab: function(tabBtn, contentId) {
         document.querySelectorAll('.consult-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.consult-content').forEach(c => c.classList.remove('active'));
@@ -531,6 +542,20 @@ const MediCore = {
         document.getElementById(contentId).classList.add('active');
         
         if (window.lucide) lucide.createIcons();
+    },
+
+    switchProfileTab: function(tabBtn, contentId) {
+        document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.profile-tab-content').forEach(c => c.classList.remove('active'));
+
+        tabBtn.classList.add('active');
+        document.getElementById(contentId).classList.add('active');
+        
+        if (window.lucide) lucide.createIcons();
+    },
+
+    handleRowClick: function(patientName) {
+        MediCore.switchTab('patient-details');
     }
 };
 
