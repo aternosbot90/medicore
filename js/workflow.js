@@ -109,23 +109,44 @@ const MediCore = {
 
     openBookingForm: (doctorName) => {
         const content = document.getElementById('profileContent');
+        const docOptions = MediCore.doctors.map(d => `<option value="${d.name}" ${d.name === doctorName ? 'selected' : ''}>${d.name} (${d.specialty})</option>`).join('');
+        
         content.innerHTML = `
             <div class="profile-modal animate-in" style="width:500px;">
-                <div style="padding: 32px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+                <div style="padding: 24px 32px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background: var(--primary-gradient); border-radius: 20px 20px 0 0; color: white;">
                     <div>
-                        <h2 style="font-size:20px; font-weight:800;">Book Appointment</h2>
-                        <p style="font-size:13px; color:var(--text-muted);">${doctorName}</p>
+                        <h2 style="font-size:20px; font-weight:800; margin:0;">Book Appointment</h2>
+                        <p style="font-size:13px; opacity:0.8; margin:4px 0 0;">Fill in the details to schedule a visit</p>
                     </div>
-                    <button class="btn btn-secondary" style="padding:8px;" onclick="MediCore.closeProfile()"><i data-lucide="x" style="width:18px;"></i></button>
+                    <button class="btn" style="padding:8px; background:rgba(255,255,255,0.2); border:none; color:white;" onclick="MediCore.closeProfile()"><i data-lucide="x" style="width:18px;"></i></button>
                 </div>
                 <div style="padding:32px;">
                     <div class="form-group">
-                        <label>Preferred Date</label>
-                        <input type="date" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+                        <label style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; display:block;">Patient Name</label>
+                        <input type="text" id="bookPatientName" class="form-control" placeholder="Enter full name" style="height:48px; border-radius:12px; font-weight:600;">
                     </div>
                     <div class="form-group">
-                        <label>Available Slots</label>
-                        <div class="slot-grid">
+                        <label style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; display:block;">Consulting Doctor</label>
+                        <select id="bookDoctorName" class="form-control" style="height:48px; border-radius:12px; font-weight:600; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%20fill%3D%22none%22%20stroke%3D%22%2364748B%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 16px center; background-size: 16px;">
+                            ${docOptions}
+                        </select>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                        <div class="form-group">
+                            <label style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; display:block;">Preferred Date</label>
+                            <input type="date" id="bookDate" class="form-control" value="${new Date().toISOString().split('T')[0]}" style="height:48px; border-radius:12px; font-weight:600;">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; display:block;">Visit Type</label>
+                            <select id="bookVisitType" class="form-control" style="height:48px; border-radius:12px; font-weight:600;">
+                                <option>Physical Visit</option>
+                                <option>Video Consultation</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; display:block;">Available Slots</label>
+                        <div class="slot-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
                             <div class="slot-btn active">09:00 AM</div>
                             <div class="slot-btn">10:30 AM</div>
                             <div class="slot-btn">12:00 PM</div>
@@ -134,29 +155,13 @@ const MediCore = {
                             <div class="slot-btn">05:30 PM</div>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Visit Type</label>
-                        <div style="display:flex; gap:12px;">
-                            <label style="flex:1; padding:12px; border:1px solid var(--border); border-radius:12px; display:flex; align-items:center; gap:8px; cursor:pointer;">
-                                <input type="radio" name="visitType" checked> <span>Physical</span>
-                            </label>
-                            <label style="flex:1; padding:12px; border:1px solid var(--border); border-radius:12px; display:flex; align-items:center; gap:8px; cursor:pointer;">
-                                <input type="radio" name="visitType"> <span>Video</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="form-group" style="margin-bottom:0;">
-                        <label>Reason for Visit</label>
-                        <textarea class="form-control" placeholder="Briefly describe your concern..." style="min-height:80px;"></textarea>
-                    </div>
-                    <button class="btn btn-primary" style="width:100%; margin-top:32px; height:54px; justify-content:center;" onclick="MediCore.confirmBooking('${doctorName}')">
+                    <button class="btn btn-primary" style="width:100%; margin-top:12px; height:54px; justify-content:center; border-radius:14px; font-weight:800; font-size:16px; background:var(--primary-gradient); box-shadow: 0 8px 20px rgba(59, 113, 254, 0.25);" onclick="MediCore.confirmBooking()">
                         Confirm Appointment
                     </button>
                 </div>
             </div>
         `;
         if(window.lucide) lucide.createIcons();
-        // Add click listener for slots
         document.querySelectorAll('.slot-btn').forEach(btn => {
             btn.onclick = () => {
                 document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active'));
@@ -165,10 +170,19 @@ const MediCore = {
         });
     },
 
-    confirmBooking: (doctorName) => {
+    confirmBooking: () => {
+        const pName = document.getElementById('bookPatientName').value;
+        const dName = document.getElementById('bookDoctorName').value;
+        const date = document.getElementById('bookDate').value;
         const time = document.querySelector('.slot-btn.active').innerText;
-        MediCore.saveAppointment("Johnathan Doe", doctorName, time);
-        alert(`Appointment confirmed with ${doctorName} at ${time}!`);
+        
+        if(!pName) {
+            alert("Please enter patient name");
+            return;
+        }
+
+        MediCore.saveAppointment(pName, dName, `${date} ${time}`);
+        alert(`Appointment confirmed for ${pName} with ${dName} at ${time}!`);
         MediCore.closeProfile();
     },
 
@@ -244,7 +258,10 @@ const MediCore = {
         if (window.lucide) lucide.createIcons();
         
         // Refresh specific tab data
-        if (tabId === 'livequeue') MediCore.renderFullQueue();
+        if (tabId === 'appointments') MediCore.renderFullQueue();
+        if (tabId === 'patients') MediCore.renderPatients();
+        if (tabId === 'lab-reports') MediCore.renderLabReports();
+        if (tabId === 'prescriptions') MediCore.renderPrescriptionBuilder();
         if (tabId === 'dash') MediCore.renderDashboardData();
         
         // Scroll to top
@@ -270,19 +287,40 @@ const MediCore = {
         { id: 'A-45', name: 'Emily Davis', age: 28, gender: 'Female', wait: '22 min', status: 'Waiting', abha: '91-5544-3322-1100' },
         { id: 'A-46', name: 'Michael Brown', age: 47, gender: 'Male', wait: '10 min', status: 'Waiting', abha: '91-1122-3344-5566' }
     ],
+    
+    mockLabReports: [
+        { id: 'LAB-9921', name: 'Johnathan Doe', age: 42, gender: 'Male', test: 'Lipid Profile', date: '24 May 2024', status: 'Ready' },
+        { id: 'LAB-9918', name: 'Sarah Jenkins', age: 31, gender: 'Female', test: 'CBC with ESR', date: '23 May 2024', status: 'Processing' },
+        { id: 'LAB-9915', name: 'Robert Smith', age: 55, gender: 'Male', test: 'Liver Function Test', date: '22 May 2024', status: 'Ready' },
+        { id: 'LAB-9912', name: 'Emily Davis', age: 28, gender: 'Female', test: 'Thyroid Profile', date: '21 May 2024', status: 'Ready' }
+    ],
 
     renderDashboardData: () => {
         // Render Top 5 Appointments
         const topList = document.getElementById('topAppointmentsList');
         if (topList) {
-            topList.innerHTML = MediCore.mockQueue.slice(0, 5).map(p => `
-                <tr>
-                    <td style="color:var(--primary); font-weight:700;">10:30 AM</td>
-                    <td><b>${p.name}</b></td>
-                    <td>#${p.id}</td>
-                    <td><span class="status-badge available">Confirmed</span></td>
-                </tr>
-            `).join('');
+            topList.innerHTML = MediCore.mockQueue.slice(0, 5).map(p => {
+                const initials = p.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+                return `
+                    <tr>
+                        <td><b style="color:var(--primary);">10:30 AM</b></td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="width:36px; height:36px; border-radius:50%; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px;">
+                                    ${initials}
+                                </div>
+                                <div>
+                                    <div style="font-weight:700;">${p.name}</div>
+                                    <div style="font-size:11px; color:var(--text-muted);">ABHA: ${p.abha}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span style="font-size:12px; font-weight:700; color:#64748B;">Routine Checkup</span></td>
+                        <td><span class="status-badge available" style="font-size:10px;">Confirmed</span></td>
+                        <td><button class="btn btn-secondary" style="padding:6px 12px; font-size:11px;" onclick="MediCore.startConsultation('${p.id}')">View Case</button></td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         // Render Live Queue Panel (Right side)
@@ -302,21 +340,190 @@ const MediCore = {
             `).join('');
         }
     },
+    renderLabReports: () => {
+        const list = document.getElementById('labReportsList');
+        if (!list) return;
+        list.innerHTML = MediCore.mockLabReports.map((r, i) => {
+            const initials = r.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            const colors = ['#F0F4FF', '#F0FFF4', '#FFFBEB', '#FFF5F5', '#F5F3FF'];
+            const textColors = ['#3B71FE', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6'];
+            const color = colors[i % colors.length];
+            const textColor = textColors[i % textColors.length];
+            return `
+                <tr>
+                    <td style="font-weight:700; color:var(--primary);">#${r.id}</td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:36px; height:36px; border-radius:50%; background:${color}; color:${textColor}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px;">
+                                ${initials}
+                            </div>
+                            <div>
+                                <div style="font-weight:700;">${r.name}</div>
+                                <div style="font-size:11px; color:var(--text-muted);">${r.age}Y / ${r.gender}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span style="font-weight:600;">${r.test}</span></td>
+                    <td>${r.date}</td>
+                    <td><span class="status-badge ${r.status === 'Ready' ? 'available' : 'pending'}">${r.status}</span></td>
+                    <td><button class="btn btn-secondary" style="padding:6px 12px; font-size:11px;" ${r.status !== 'Ready' ? 'disabled' : ''}>View Report</button></td>
+                </tr>
+            `;
+        }).join('');
+        if (window.lucide) lucide.createIcons();
+    },
+
+    renderPatients: () => {
+        const grid = document.getElementById('fullPatientGrid');
+        if (!grid) return;
+        grid.innerHTML = MediCore.mockQueue.map(p => {
+            const initials = p.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            return `
+                <div class="patient-card animate-in">
+                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                        <div style="width:52px; height:52px; border-radius:14px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px;">
+                            ${initials}
+                        </div>
+                        <div>
+                            <div style="font-weight:800; font-size:16px; color:#1A1D23;">${p.name}</div>
+                            <div style="font-size:12px; color:var(--text-muted); font-weight:600;">ABHA: ${p.abha}</div>
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:20px;">
+                        <div style="padding:10px; background:#F8FAFC; border-radius:12px;">
+                            <div style="font-size:10px; color:var(--text-muted); font-weight:700; margin-bottom:4px;">AGE/GENDER</div>
+                            <div style="font-size:13px; font-weight:700;">${p.age}Y / ${p.gender}</div>
+                        </div>
+                        <div style="padding:10px; background:#F8FAFC; border-radius:12px;">
+                            <div style="font-size:10px; color:var(--text-muted); font-weight:700; margin-bottom:4px;">LAST VISIT</div>
+                            <div style="font-size:13px; font-weight:700;">20 May 2024</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-secondary" style="flex:1; font-size:12px;" onclick="MediCore.startConsultation('${p.id}')">View EHR</button>
+                        <button class="btn btn-primary" style="flex:1; font-size:12px;" onclick="MediCore.startConsultation('${p.id}')">Consult</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
 
     renderFullQueue: () => {
         const fullList = document.getElementById('fullLiveQueueList');
         if (!fullList) return;
-        fullList.innerHTML = MediCore.mockQueue.map(p => `
-            <tr>
-                <td><b>#${p.id}</b></td>
-                <td><b>${p.name}</b></td>
-                <td>${p.age} / ${p.gender}</td>
-                <td>${p.wait}</td>
-                <td><span class="status-badge pending">${p.status}</span></td>
-                <td><button class="btn btn-primary" onclick="MediCore.startConsultation('${p.id}')">Start Consultation</button></td>
-            </tr>
-        `).join('');
+        fullList.innerHTML = MediCore.mockQueue.map(p => {
+            const initials = p.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            return `
+                <tr>
+                    <td><b style="color:var(--primary);">#${p.id}</b></td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:32px; height:32px; border-radius:8px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px;">
+                                ${initials}
+                            </div>
+                            <b>${p.name}</b>
+                        </div>
+                    </td>
+                    <td>${p.age} / ${p.gender}</td>
+                    <td>${p.wait}</td>
+                    <td><span class="status-badge pending">${p.status}</span></td>
+                    <td><button class="btn btn-primary" onclick="MediCore.startConsultation('${p.id}')">Start Consultation</button></td>
+                </tr>
+            `;
+        }).join('');
     },
+
+    renderPrescriptionBuilder: () => {
+        const tbody = document.getElementById('prescriptionBuilderBody');
+        if (!tbody) return;
+        
+        // Initial mock data for the builder as per image
+        if (!MediCore.builderMeds || MediCore.builderMeds.length === 0) {
+            MediCore.builderMeds = [
+                { name: 'Paracetamol', dosage: '500 mg', freq: 'Twice a Day', dur: '5 Days', instr: 'After Food' },
+                { name: 'Paracetamol', dosage: '500 mg', freq: 'Twice a Day', dur: '5 Days', instr: 'After Food' },
+                { name: 'Paracetamol', dosage: '500 mg', freq: 'Twice a Day', dur: '5 Days', instr: 'After Food' }
+            ];
+        }
+        
+        MediCore.renderBuilderTable();
+    },
+
+    renderBuilderTable: () => {
+        const container = document.getElementById('prescriptionBuilderBody');
+        if (!container) return;
+        
+        container.innerHTML = MediCore.builderMeds.map((m, i) => `
+            <div class="med-card ${i === 0 ? 'active' : ''}" style="display:grid; grid-template-columns: 36px 1.8fr 1fr 1.6fr 1fr 1.6fr 52px; gap:8px; align-items:center; padding:16px; background:white; border:1px solid #E2E8F0; border-radius:16px; transition:0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+                <div style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</div>
+                
+                <!-- Medicine -->
+                <div class="pill-input-box">
+                    <input type="text" value="${m.name}" placeholder="Medicine">
+                    <i data-lucide="chevron-down"></i>
+                </div>
+
+                <!-- Dosage -->
+                <div class="pill-input-box">
+                    <select>
+                        <option>${m.dosage}</option>
+                        <option>250 mg</option>
+                        <option>650 mg</option>
+                    </select>
+                    <i data-lucide="chevron-down"></i>
+                </div>
+
+                <!-- Frequency -->
+                <div class="pill-input-box">
+                    <select>
+                        <option>${m.freq}</option>
+                        <option>Once a Day</option>
+                        <option>Three Times a Day</option>
+                    </select>
+                    <i data-lucide="chevron-down"></i>
+                </div>
+
+                <!-- Duration -->
+                <div class="pill-input-box">
+                    <select>
+                        <option>${m.dur}</option>
+                        <option>3 Days</option>
+                        <option>7 Days</option>
+                    </select>
+                    <i data-lucide="chevron-down"></i>
+                </div>
+
+                <!-- Instructions -->
+                <div class="pill-input-box">
+                    <select>
+                        <option>${m.instr}</option>
+                        <option>Before Food</option>
+                    </select>
+                    <i data-lucide="chevron-down"></i>
+                </div>
+
+                <!-- Action -->
+                <div style="text-align:right;">
+                    <button class="med-delete-btn" onclick="MediCore.removeBuilderRow(${i})">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        if (window.lucide) lucide.createIcons();
+    },
+
+    addPrescriptionMedicineRow: () => {
+        MediCore.builderMeds.push({ name: '', dosage: '500 mg', freq: 'Twice a Day', dur: '5 Days', instr: 'After Food' });
+        MediCore.renderBuilderTable();
+    },
+
+    removeBuilderRow: (i) => {
+        MediCore.builderMeds.splice(i, 1);
+        MediCore.renderBuilderTable();
+    },
+
+    builderMeds: [],
 
     // CONSULTATION FLOW
     startNextConsultation: () => {

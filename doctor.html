@@ -5,6 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doctor Workspace - MediCore</title>
     <link rel="stylesheet" href="css/index.css">
+    <style>
+        .med-card.active {
+            border-color: #3B71FE !important;
+            box-shadow: 0 4px 15px rgba(59, 113, 254, 0.08) !important;
+        }
+        .pill-input-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .pill-input-box input, .pill-input-box select {
+            width: 100%;
+            padding: 8px 24px 8px 10px;
+            border-radius: 99px;
+            border: 1px solid #E2E8F0;
+            background: #F8FAFC;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1E293B;
+            appearance: none;
+            outline: none;
+            transition: 0.2s;
+            text-overflow: clip;
+            white-space: nowrap;
+        }
+        .pill-input-box input:focus, .pill-input-box select:focus {
+            border-color: #3B71FE;
+            background: white;
+        }
+        .pill-input-box i {
+            position: absolute;
+            right: 8px;
+            width: 12px;
+            color: #94A3B8;
+            pointer-events: none;
+        }
+        .med-delete-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            border: none;
+            background: #F1F5F9;
+            color: #94A3B8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .med-delete-btn:hover {
+            background: #FEE2E2;
+            color: #EF4444;
+        }
+    </style>
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -58,23 +112,44 @@
         <nav>
             <a href="#" class="nav-link active" data-tab="dash"><i data-lucide="layout-grid"></i> Dashboard</a>
             <a href="#" class="nav-link" data-tab="appointments"><i data-lucide="calendar"></i> Appointments</a>
-            <a href="#" class="nav-link" data-tab="patients"><i data-lucide="users"></i> Patients</a>
-            <a href="#" class="nav-link" data-tab="consultations"><i data-lucide="stethoscope"></i> Consultations</a>
-            <a href="#" class="nav-link" data-tab="prescriptions"><i data-lucide="file-text"></i> Prescriptions</a>
+            <a href="#" class="nav-link" data-tab="patients"><i data-lucide="users"></i> Patient Management</a>
+            <a href="#" class="nav-link" data-tab="lab-reports"><i data-lucide="flask-conical"></i> Lab reports</a>
+            <a href="#" class="nav-link" data-tab="prescriptions"><i data-lucide="pill"></i> Prescriptions</a>
             <a href="#" class="nav-link" data-tab="settings"><i data-lucide="settings"></i> Settings</a>
-            <a href="index.html" class="nav-link" style="margin-top: auto; color: #FCA5A5;"><i data-lucide="log-out"></i> Logout</a>
+            
+            <a href="#" class="nav-link" id="nav-consultation" data-tab="consultations" style="display:none;"><i data-lucide="stethoscope"></i> Consultation</a>
+
+            <div style="margin-top: auto; padding-top: 24px; border-top: 1px solid var(--border);">
+                <div style="display:flex; align-items:center; gap:12px; padding:12px; cursor:pointer;">
+                    <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=100&h=100" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+                    <div style="flex:1;">
+                        <div style="font-weight:800; font-size:13px; color:#1A1D23;">Dr. Ankit Sharma</div>
+                        <div style="font-size:10px; color:var(--text-muted); font-weight:700;">Doctor</div>
+                    </div>
+                    <i data-lucide="chevron-down" style="width:14px; color:var(--text-muted);"></i>
+                </div>
+                <a href="index.html" class="nav-link" style="color: #FCA5A5; padding: 12px;"><i data-lucide="log-out"></i> Logout</a>
+            </div>
         </nav>
     </div>
 
-    <div class="top-nav">
-        <div id="liveClock" style="background:var(--primary-light); color:var(--primary); padding:8px 16px; border-radius:99px; font-weight:700; font-size:14px;">00:00</div>
-        <div style="flex: 1; max-width: 400px; margin: 0 40px; position: relative;">
-            <i data-lucide="search" style="position: absolute; left: 16px; top: 14px; color: var(--text-muted); width: 18px;"></i>
-            <input type="text" placeholder="Search patient records..." style="padding:14px; padding-left: 48px; border-radius:12px; border:none; background:#F8FAFC; width:100%;">
+    <div class="top-nav" style="background:white; border-bottom:1px solid var(--border); padding: 0 40px; height:80px;">
+        <div style="flex: 1; max-width: 500px; position: relative;">
+            <i data-lucide="search" style="position: absolute; left: 16px; top: 12px; color: var(--text-muted); width: 18px;"></i>
+            <input type="text" placeholder="Search patient by mobile/ID..." style="padding:12px; padding-left: 48px; border-radius:10px; border:1px solid #E2E8F0; background:#F8FAFC; width:100%; font-size:14px;">
         </div>
-        <div class="user-profile" style="display:flex; align-items:center; gap:12px;">
-            <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=100&h=100" style="width:40px; height:40px; border-radius:12px; object-fit:cover;">
-            <div><div style="font-weight:700; font-size:14px;">Dr. William</div><div style="font-size:11px; color:var(--text-muted);">Cardiologist</div></div>
+        <div style="display:flex; align-items:center; gap:24px; margin-left:auto;">
+            <div style="position:relative; cursor:pointer; color:var(--text-muted);">
+                <i data-lucide="bell" style="width:20px;"></i>
+                <div style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:var(--danger); border-radius:50%; border:2px solid white;"></div>
+            </div>
+            <div class="user-profile" style="display:flex; align-items:center; gap:12px;">
+                <div style="text-align:right;">
+                    <div style="font-weight:800; font-size:14px; color:#1A1D23;">Dr. Andrew Clark</div>
+                    <div style="font-size:11px; color:var(--text-muted); font-weight:600;">Cardiology Specialist</div>
+                </div>
+                <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=100&h=100" style="width:40px; height:40px; border-radius:12px; object-fit:cover;">
+            </div>
         </div>
     </div>
 
@@ -453,17 +528,230 @@
             </div>
         </div>
 
-        <!-- Prescriptions Tab -->
-        <div id="prescriptions" class="tab-content">
-            <h1 style="font-size:28px; font-weight:800; margin-bottom:32px;">Prescription History</h1>
+        <!-- Lab Reports Tab -->
+        <div id="lab-reports" class="tab-content">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:32px;">
+                <h1 style="font-size:28px; font-weight:800;">Laboratory Reports</h1>
+                <div style="display:flex; gap:12px;">
+                    <div style="width:300px; position:relative;">
+                        <i data-lucide="search" style="position:absolute; left:16px; top:14px; color:var(--text-muted); width:18px;"></i>
+                        <input type="text" class="form-control" placeholder="Search reports..." style="padding-left:48px;">
+                    </div>
+                    <button class="btn btn-secondary"><i data-lucide="filter"></i> Filter</button>
+                    <button class="btn btn-primary" style="background:var(--primary-gradient);"><i data-lucide="plus"></i> New Report</button>
+                </div>
+            </div>
+            
             <div class="glass-card">
                 <table class="elite-table">
-                    <thead><tr><th>ID</th><th>Patient</th><th>Date</th><th>Diagnosis</th><th>Status</th><th>Action</th></tr></thead>
-                    <tbody>
-                        <tr><td>#RX-8821</td><td>Johnathan Doe</td><td>Today</td><td>I10 Hypertension</td><td><span class="status-badge available">Dispensed</span></td><td><button class="btn btn-secondary">View</button></td></tr>
-                        <tr><td>#RX-8819</td><td>Sarah Jenkins</td><td>Yesterday</td><td>Acute Bronchitis</td><td><span class="status-badge pending">Pending</span></td><td><button class="btn btn-secondary">Edit</button></td></tr>
+                    <thead>
+                        <tr>
+                            <th>Report ID</th>
+                            <th>Patient Details</th>
+                            <th>Test Name</th>
+                            <th>Ordered On</th>
+                            <th>Result Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="labReportsList">
+                        <!-- Lab reports populated by JS -->
+                        <tr>
+                            <td style="font-weight:700; color:var(--primary);">#LAB-9921</td>
+                            <td>
+                                <div style="font-weight:700;">Johnathan Doe</div>
+                                <div style="font-size:11px; color:var(--text-muted);">42Y / Male</div>
+                            </td>
+                            <td><span style="font-weight:600;">Lipid Profile</span></td>
+                            <td>24 May 2024</td>
+                            <td><span class="status-badge available">Ready</span></td>
+                            <td><button class="btn btn-secondary" style="padding:6px 12px; font-size:11px;">View Report</button></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight:700; color:var(--primary);">#LAB-9918</td>
+                            <td>
+                                <div style="font-weight:700;">Sarah Jenkins</div>
+                                <div style="font-size:11px; color:var(--text-muted);">31Y / Female</div>
+                            </td>
+                            <td><span style="font-weight:600;">CBC with ESR</span></td>
+                            <td>23 May 2024</td>
+                            <td><span class="status-badge pending">Processing</span></td>
+                            <td><button class="btn btn-secondary" style="padding:6px 12px; font-size:11px;" disabled>View Report</button></td>
+                        </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Prescriptions Tab -->
+        <div id="prescriptions" class="tab-content">
+            <div style="display:grid; grid-template-columns: 340px 1fr; gap:24px;">
+                <!-- Left Sidebar: Patient Pulse -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    <!-- Patient Profile Card -->
+                    <div class="glass-card" style="padding:20px;">
+                        <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100&h=100" style="width:64px; height:64px; border-radius:12px; object-fit:cover;">
+                            <div>
+                                <div style="font-weight:800; font-size:16px;">Ravi Kumar <i data-lucide="mars" style="width:14px; color:var(--primary);"></i></div>
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:600;">32 Y, Male | 9876543210</div>
+                                <div style="font-size:11px; color:var(--text-muted);">Patient ID: PT000123</div>
+                            </div>
+                        </div>
+                        <div style="border-top:1px solid var(--border); padding-top:16px;">
+                            <div class="flex-between" style="margin-bottom:12px;">
+                                <span style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Consultation Details</span>
+                                <span style="font-size:11px; color:var(--primary); font-weight:700; cursor:pointer;"><i data-lucide="edit-3" style="width:12px;"></i> Edit</span>
+                            </div>
+                            <div style="font-size:13px; font-weight:700; margin-bottom:8px;">
+                                <div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-bottom:2px;">Date & Time</div>
+                                24 May 2024, 09:00 AM
+                            </div>
+                            <div style="display:flex; gap:12px; align-items:center;">
+                                <div style="flex:1;">
+                                    <div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-bottom:2px;">Visit Type</div>
+                                    <span class="status-badge available" style="font-size:10px; padding:4px 8px;">NEW VISIT</span>
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-bottom:2px;">Consultation ID</div>
+                                    <div style="font-weight:700;">CONS-880245</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Symptoms Card -->
+                    <div class="glass-card" style="padding:20px;">
+                        <h3 style="font-size:14px; font-weight:800; margin-bottom:16px; color:var(--primary); display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="thermometer" style="width:16px;"></i> Symptoms
+                        </h3>
+                        <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;">
+                            <li style="font-size:13px; font-weight:600; color:#475569; display:flex; align-items:center; gap:8px;"><span style="width:4px; height:4px; background:#CBD5E1; border-radius:50%;"></span> Fever since 2 days</li>
+                            <li style="font-size:13px; font-weight:600; color:#475569; display:flex; align-items:center; gap:8px;"><span style="width:4px; height:4px; background:#CBD5E1; border-radius:50%;"></span> Headache</li>
+                            <li style="font-size:13px; font-weight:600; color:#475569; display:flex; align-items:center; gap:8px;"><span style="width:4px; height:4px; background:#CBD5E1; border-radius:50%;"></span> Body Pain</li>
+                            <li style="font-size:13px; font-weight:600; color:#475569; display:flex; align-items:center; gap:8px;"><span style="width:4px; height:4px; background:#CBD5E1; border-radius:50%;"></span> Sore Throat</li>
+                        </ul>
+                        <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+                            <div style="font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:4px;">NOTES:</div>
+                            <p style="font-size:12px; color:var(--text-muted); font-style:italic; line-height:1.5;">Patient reports mild body ache and throat irritation.</p>
+                        </div>
+                    </div>
+
+                    <!-- Vitals Card -->
+                    <div class="glass-card" style="padding:20px;">
+                        <h3 style="font-size:14px; font-weight:800; margin-bottom:16px; color:var(--success); display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="activity" style="width:16px;"></i> Vitals
+                        </h3>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
+                            <div>
+                                <div style="font-size:10px; color:var(--text-muted); font-weight:700;">BP</div>
+                                <div style="font-size:15px; font-weight:800;">120/80 <span style="font-size:10px; color:var(--text-muted); font-weight:600;">mmHg</span></div>
+                            </div>
+                            <div>
+                                <div style="font-size:10px; color:var(--text-muted); font-weight:700;">PULSE</div>
+                                <div style="font-size:15px; font-weight:800;">78 <span style="font-size:10px; color:var(--text-muted); font-weight:600;">bpm</span></div>
+                            </div>
+                            <div>
+                                <div style="font-size:10px; color:var(--text-muted); font-weight:700;">TEMPERATURE</div>
+                                <div style="font-size:15px; font-weight:800;">99.2 <span style="font-size:10px; color:var(--text-muted); font-weight:600;">°F</span></div>
+                            </div>
+                            <div>
+                                <div style="font-size:10px; color:var(--text-muted); font-weight:700;">WEIGHT</div>
+                                <div style="font-size:15px; font-weight:800;">72 <span style="font-size:10px; color:var(--text-muted); font-weight:600;">kg</span></div>
+                            </div>
+                        </div>
+                        <a href="#" style="font-size:12px; color:var(--primary); font-weight:700; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:4px; padding:8px; background:var(--primary-light); border-radius:8px;">View All Vitals <i data-lucide="arrow-right" style="width:14px;"></i></a>
+                    </div>
+
+                    <!-- Allergies Card -->
+                    <div class="glass-card" style="padding:20px; border-left:4px solid var(--danger);">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; color:var(--danger);">
+                            <i data-lucide="alert-circle" style="width:16px;"></i>
+                            <span style="font-size:13px; font-weight:800; text-transform:uppercase;">Allergies</span>
+                        </div>
+                        <div style="font-size:12px; color:var(--text-muted); font-weight:600;">No known allergies</div>
+                    </div>
+                </div>
+
+                <!-- Main Prescription Area -->
+                <div style="display:flex; flex-direction:column; gap:24px;">
+                    <div class="glass-card" style="padding:0; overflow:hidden;">
+                        <div style="padding:24px 32px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:#FBFDFF;">
+                            <h2 style="font-size:18px; font-weight:800; display:flex; align-items:center; gap:12px;">
+                                <i data-lucide="clipboard-list" style="color:var(--primary);"></i> Prescription
+                            </h2>
+                            <div style="display:flex; align-items:center; gap:16px;">
+                                <div style="display:flex; align-items:center; gap:12px;">
+                                    <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Template</span>
+                                    <select class="form-control" style="width:180px; height:38px; font-size:13px;"><option>Select Template</option></select>
+                                </div>
+                                <button class="btn btn-secondary" style="height:38px; font-size:12px;"><i data-lucide="plus"></i> Add Template</button>
+                            </div>
+                        </div>
+
+                        <div style="padding:32px;">
+                            <!-- Diagnosis -->
+                            <div style="margin-bottom:32px;">
+                                <label style="display:block; font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:12px;">Diagnosis (Optional)</label>
+                                <input type="text" class="form-control" placeholder="Enter diagnosis..." value="Viral Fever with Upper Respiratory Tract Infection" style="height:52px; font-weight:600; background:#F8FAFC; border-color:#E2E8F0;">
+                            </div>
+
+                            <!-- Medications -->
+                            <div style="margin-bottom:32px;">
+                                <label style="display:block; font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:16px;">Medications</label>
+                                
+                                <!-- Medication Header -->
+                                <div style="display:grid; grid-template-columns: 36px 1.8fr 1fr 1.6fr 1fr 1.6fr 52px; gap:8px; padding:0 16px; margin-bottom:12px; font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">
+                                    <div style="text-align:center;">#</div>
+                                    <div>Medicine</div>
+                                    <div>Dosage</div>
+                                    <div>Frequency</div>
+                                    <div>Duration</div>
+                                    <div>Instructions</div>
+                                    <div></div>
+                                </div>
+
+                                <div id="prescriptionBuilderBody" style="display:flex; flex-direction:column; gap:12px;">
+                                    <!-- Will be populated by JS as cards -->
+                                </div>
+
+                                <button class="btn btn-primary" onclick="MediCore.addPrescriptionMedicineRow()" style="margin-top:24px; font-size:14px; font-weight:700; color:var(--primary); background:transparent; border:none; display:flex; align-items:center; gap:8px; padding:0; box-shadow:none;">
+                                    <i data-lucide="plus" style="width:18px;"></i> Add Medicine
+                                </button>
+                            </div>
+
+                            <!-- Patient Notes -->
+                            <div style="margin-bottom:32px;">
+                                <label style="display:block; font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:12px;">Notes for Patient</label>
+                                <div style="background:#FBFDFF; border:1px solid #E2E8F0; border-radius:16px; padding:24px;">
+                                    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+                                        <div style="font-size:13px; font-weight:600; color:#475569;">• Take plenty of rest and fluids.</div>
+                                        <div style="font-size:13px; font-weight:600; color:#475569;">• Avoid oily and spicy food.</div>
+                                        <div style="font-size:13px; font-weight:600; color:#475569;">• Take medication regularly for the complete duration.</div>
+                                        <div style="font-size:13px; font-weight:600; color:#475569;">• Contact clinic if symptoms persist or worsen.</div>
+                                    </div>
+                                    <textarea class="form-control" placeholder="Add additional patient instructions here..." style="min-height:100px; background:transparent; border:none; padding:0; border-top:1px dashed #E2E8F0; border-radius:0; padding-top:16px;"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Footer Actions -->
+                        <div style="padding:24px 40px; background:#F8FAFC; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+                            <label style="display:flex; align-items:center; gap:12px; cursor:pointer;">
+                                <input type="checkbox" checked style="width:20px; height:20px; accent-color:var(--primary);">
+                                <div>
+                                    <div style="font-size:14px; font-weight:700;">Send prescription to pharmacy</div>
+                                    <div style="font-size:11px; color:var(--text-muted);">MediCore Pharmacy, Main Branch</div>
+                                </div>
+                            </label>
+                            <div style="display:flex; gap:12px; align-items:center;">
+                                <button class="btn btn-secondary" style="background:transparent; border:none; color:var(--text-muted);">Cancel</button>
+                                <button class="btn btn-secondary" style="background:white; border-color:#E2E8F0; min-width:120px;">Save as Draft</button>
+                                <button class="btn btn-primary" style="background:var(--primary-gradient); min-width:180px; height:52px; font-weight:700; box-shadow: 0 10px 20px rgba(59, 113, 254, 0.2);"><i data-lucide="send"></i> Send Prescription</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -504,9 +792,7 @@
 
     <script src="js/workflow.js"></script>
     <script>
-        MediCore.setupNavigation();
-        MediCore.renderHospitalSchedule('doctorScheduleList', 'Dr. William Harrison');
-        if(window.lucide) lucide.createIcons();
+        // MediCore.init() handles setup automatically on window.onload
     </script>
 </body>
 </html>
