@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api' // Proxy set up in vite.config.js points this to http://localhost:5000
+  baseURL: import.meta.env.VITE_API_URL || '/api' // Uses Vercel environment variable or defaults to local proxy
 });
 
 // Request interceptor to add the token to headers
