@@ -813,6 +813,237 @@ const MediCore = {
         `).join('');
         
         lucide.createIcons();
+    },
+
+    // LABORATORY MODULE LOGIC
+    mockLabRequests: [
+        { id: 'LR-1001', patient: 'Johnathan Doe', test: 'Complete Blood Count', doctor: 'Dr. Harrison', time: '10:45 AM', priority: 'High', status: 'Pending' },
+        { id: 'LR-1002', patient: 'Sarah Jenkins', test: 'Lipid Profile', doctor: 'Dr. Adams', time: '11:15 AM', priority: 'Normal', status: 'Pending' },
+        { id: 'LR-1003', patient: 'Robert Smith', test: 'Liver Function Test', doctor: 'Dr. Bennett', time: '11:30 AM', priority: 'Normal', status: 'Pending' },
+        { id: 'LR-1004', patient: 'Emily Davis', test: 'Thyroid Panel (T3, T4, TSH)', doctor: 'Dr. Brooks', time: '12:05 PM', priority: 'Urgent', status: 'Pending' }
+    ],
+
+    mockLabSamples: [
+        { barcode: 'S-99210', patient: 'Michael Brown', type: 'Blood', collectedAt: '09:30 AM', collector: 'Technician A', status: 'Processing' },
+        { barcode: 'S-99211', patient: 'Alice Wilson', type: 'Urine', collectedAt: '10:15 AM', collector: 'Technician B', status: 'Collected' }
+    ],
+
+    mockLabInventory: [
+        { name: 'Hematology Reagent', category: 'Reagents', stock: '12L', threshold: '20L', lastRestock: '12 May', status: 'Low' },
+        { name: 'Vacuum Tubes (Red)', category: 'Consumables', stock: '240 units', threshold: '1000 units', lastRestock: '05 May', status: 'Low' },
+        { name: 'Glucose Test Strips', category: 'Consumables', stock: '5000 units', threshold: '2000 units', lastRestock: '10 May', status: 'Healthy' }
+    ],
+
+    initLab: function() {
+        this.renderLabDashboard();
+        this.setupNavigation();
+        
+        setInterval(() => {
+            const clock = document.getElementById('liveClock');
+            if (clock) {
+                const now = new Date();
+                clock.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+        }, 1000);
+    },
+
+    renderLabDashboard: function() {
+        const dashReq = document.getElementById('labDashRequests');
+        if (dashReq) {
+            dashReq.innerHTML = this.mockLabRequests.slice(0, 4).map(req => `
+                <tr>
+                    <td><b>${req.patient}</b></td>
+                    <td><span style="font-weight:600;">${req.test}</span></td>
+                    <td>${req.doctor}</td>
+                    <td><span class="status-badge ${req.priority === 'High' || req.priority === 'Urgent' ? 'critical' : 'pending'}">${req.priority}</span></td>
+                    <td><button class="btn btn-primary" style="padding:6px 12px; font-size:11px;" onclick="MediCore.collectSample('${req.id}')">Collect Sample</button></td>
+                </tr>
+            `).join('');
+        }
+        this.renderLabRequests();
+        this.renderLabSamples();
+        this.renderLabInventory();
+    },
+
+    renderLabRequests: function() {
+        const fullReq = document.getElementById('fullLabRequests');
+        if (fullReq) {
+            fullReq.innerHTML = this.mockLabRequests.map(req => `
+                <tr>
+                    <td><b style="color:var(--primary);">#${req.id}</b></td>
+                    <td><b>${req.patient}</b></td>
+                    <td><span style="font-weight:600;">${req.test}</span></td>
+                    <td>${req.doctor}</td>
+                    <td>${req.time}</td>
+                    <td><span class="status-badge pending">${req.status}</span></td>
+                    <td><button class="btn btn-primary" onclick="MediCore.collectSample('${req.id}')">Collect</button></td>
+                </tr>
+            `).join('');
+        }
+    },
+
+    renderLabSamples: function() {
+        const sampleList = document.getElementById('labSampleList');
+        if (sampleList) {
+            sampleList.innerHTML = this.mockLabSamples.map(s => `
+                <tr>
+                    <td><span style="font-family:monospace; font-weight:700; color:var(--text-muted);">${s.barcode}</span></td>
+                    <td><b>${s.patient}</b></td>
+                    <td>${s.type}</td>
+                    <td>${s.collectedAt}</td>
+                    <td>${s.collector}</td>
+                    <td><span class="sample-badge ${s.status === 'Processing' ? 'sample-processing' : 'sample-collected'}">${s.status}</span></td>
+                    <td><button class="btn btn-secondary" style="padding:6px 12px;" onclick="MediCore.processSample('${s.barcode}')">Process</button></td>
+                </tr>
+            `).join('');
+        }
+    },
+
+    renderLabInventory: function() {
+        const invList = document.getElementById('labInventoryList');
+        if (invList) {
+            invList.innerHTML = this.mockLabInventory.map(item => `
+                <tr>
+                    <td><b>${item.name}</b></td>
+                    <td>${item.category}</td>
+                    <td style="font-weight:700;">${item.stock}</td>
+                    <td>${item.threshold}</td>
+                    <td>${item.lastRestock}</td>
+                    <td><span class="status-badge ${item.status === 'Low' ? 'critical' : 'available'}">${item.status}</span></td>
+                </tr>
+            `).join('');
+        }
+    },
+
+    collectSample: function(reqId) {
+        const req = this.mockLabRequests.find(r => r.id === reqId);
+        if (!req) return;
+        
+        const overlay = document.getElementById('labModalOverlay');
+        const content = document.getElementById('labModalContent');
+        
+        content.innerHTML = `
+            <div style="padding:32px; width:500px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                    <h2 style="font-size:24px; font-weight:900;">Sample Collection</h2>
+                    <button class="btn" style="padding:8px;" onclick="document.getElementById('labModalOverlay').style.display='none'"><i data-lucide="x"></i></button>
+                </div>
+                <div style="background:#F8FAFC; padding:20px; border-radius:16px; margin-bottom:24px;">
+                    <div style="font-size:12px; color:var(--text-muted); font-weight:700; margin-bottom:4px;">PATIENT</div>
+                    <div style="font-size:18px; font-weight:800;">${req.patient}</div>
+                    <div style="margin-top:12px; font-size:12px; color:var(--text-muted); font-weight:700; margin-bottom:4px;">TEST ORDERED</div>
+                    <div style="font-size:15px; font-weight:700; color:var(--primary);">${req.test}</div>
+                </div>
+                <div class="form-group">
+                    <label>Sample Type</label>
+                    <select class="form-control">
+                        <option>Venous Blood</option>
+                        <option>Capillary Blood</option>
+                        <option>Urine (Mid-stream)</option>
+                        <option>Swab</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Container Type</label>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                        <div class="glass-card" style="padding:12px; border-color:var(--primary); background:#F0F4FF; text-align:center; cursor:pointer;">
+                            <div style="width:12px; height:12px; border-radius:50%; background:#EF4444; margin: 0 auto 8px;"></div>
+                            <span style="font-weight:700; font-size:12px;">EDTA (Purple)</span>
+                        </div>
+                        <div class="glass-card" style="padding:12px; text-align:center; cursor:pointer;">
+                            <div style="width:12px; height:12px; border-radius:50%; background:#FACC15; margin: 0 auto 8px;"></div>
+                            <span style="font-weight:700; font-size:12px;">Serum (Yellow)</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" style="width:100%; justify-content:center; height:54px; font-size:16px;" onclick="MediCore.confirmCollection('${req.id}')">Confirm Collection & Print Label</button>
+            </div>
+        `;
+        overlay.style.display = 'flex';
+        lucide.createIcons();
+    },
+
+    confirmCollection: function(reqId) {
+        alert("Sample collected and label printed for Request #" + reqId);
+        document.getElementById('labModalOverlay').style.display = 'none';
+        
+        // Update mock data
+        const reqIndex = this.mockLabRequests.findIndex(r => r.id === reqId);
+        if (reqIndex > -1) {
+            const req = this.mockLabRequests.splice(reqIndex, 1)[0];
+            this.mockLabSamples.push({
+                barcode: 'S-' + Math.floor(Math.random()*90000 + 10000),
+                patient: req.patient,
+                type: 'Blood',
+                collectedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                collector: 'Dr. Sarah Chen',
+                status: 'Collected'
+            });
+            this.renderLabDashboard();
+        }
+    },
+
+    processSample: function(barcode) {
+        this.switchTab('lab-entry');
+        const container = document.getElementById('resultEntryFormContainer');
+        const sample = this.mockLabSamples.find(s => s.barcode === barcode);
+        
+        container.innerHTML = `
+            <div class="animate-in">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:32px;">
+                    <div>
+                        <h2 style="font-size:24px; font-weight:900;">Result Entry: CBC</h2>
+                        <p style="color:var(--text-muted); font-weight:600;">Sample Barcode: ${barcode} | Patient: ${sample.patient}</p>
+                    </div>
+                    <button class="btn btn-secondary"><i data-lucide="printer"></i> Print Worksheet</button>
+                </div>
+                
+                <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap:16px; margin-bottom:20px; padding:0 12px;">
+                    <div style="font-size:11px; font-weight:800; color:var(--text-muted);">PARAMETER</div>
+                    <div style="font-size:11px; font-weight:800; color:var(--text-muted);">RESULT</div>
+                    <div style="font-size:11px; font-weight:800; color:var(--text-muted);">REF. RANGE</div>
+                </div>
+                
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div class="inventory-item" style="background:white; border:1px solid var(--border);">
+                        <div style="flex:2; font-weight:700;">Hemoglobin (Hb)</div>
+                        <div style="flex:1;"><input type="text" class="form-control" style="width:80px; text-align:center;" placeholder="14.2"></div>
+                        <div style="flex:1; font-size:12px; color:var(--text-muted);">13.0 - 17.0 g/dL</div>
+                    </div>
+                    <div class="inventory-item" style="background:white; border:1px solid var(--border);">
+                        <div style="flex:2; font-weight:700;">Total WBC Count</div>
+                        <div style="flex:1;"><input type="text" class="form-control" style="width:80px; text-align:center;" placeholder="7500"></div>
+                        <div style="flex:1; font-size:12px; color:var(--text-muted);">4000 - 11000 /cumm</div>
+                    </div>
+                    <div class="inventory-item" style="background:white; border:1px solid var(--border);">
+                        <div style="flex:2; font-weight:700;">Platelet Count</div>
+                        <div style="flex:1;"><input type="text" class="form-control" style="width:80px; text-align:center;" placeholder="2.5"></div>
+                        <div style="flex:1; font-size:12px; color:var(--text-muted);">1.5 - 4.5 Lakhs</div>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-top:24px;">
+                    <label>Pathologist Remarks</label>
+                    <textarea class="form-control" placeholder="Enter findings..."></textarea>
+                </div>
+                
+                <div style="display:flex; gap:16px; margin-top:32px;">
+                    <button class="btn btn-secondary" style="flex:1; justify-content:center;">Save Draft</button>
+                    <button class="btn btn-primary" style="flex:1; justify-content:center;" onclick="MediCore.finalizeLabResult('${barcode}')">Verify & Authorize</button>
+                </div>
+            </div>
+        `;
+        lucide.createIcons();
+    },
+
+    finalizeLabResult: function(barcode) {
+        alert("Lab results for " + barcode + " have been verified and sent to the consulting doctor.");
+        const sampleIndex = this.mockLabSamples.findIndex(s => s.barcode === barcode);
+        if (sampleIndex > -1) {
+            this.mockLabSamples.splice(sampleIndex, 1);
+        }
+        this.renderLabDashboard();
+        this.switchTab('lab-dash');
     }
 };
 
@@ -826,3 +1057,4 @@ document.addEventListener('click', (e) => {
 });
 
 MediCore.init();
+
