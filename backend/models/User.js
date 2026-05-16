@@ -17,6 +17,14 @@ const userSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
+  },
+  specialty: {
+    type: String,
+    default: 'General Physician'
+  },
+  isSetupComplete: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

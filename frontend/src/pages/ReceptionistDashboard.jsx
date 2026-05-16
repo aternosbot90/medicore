@@ -1,29 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const ReceptionistDashboard = () => {
   const [activeTab, setActiveTab] = useState('dash');
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const [appointments, setAppointments] = useState([
-      { id: "PT0025", name: "James Carter", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100", doctor: "Dr. Andrew Clark", docAvatar: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=100", status: "Upcoming", time: "09:00 AM to 10:00 AM" },
-      { id: "PT0024", name: "Emily Davis", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=100", doctor: "Dr. Katherine Brooks", docAvatar: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&q=80&w=100", status: "Upcoming", time: "09:00 AM to 10:00 AM" }
-  ]);
-
-  const [mockQueue, setMockQueue] = useState([
-      { id: 'A-42', name: 'Johnathan Doe', age: 42, gender: 'Male', wait: '12 min', status: 'Waiting', abha: '91-8821-2291-0112' },
-      { id: 'A-43', name: 'Sarah Jenkins', age: 31, gender: 'Female', wait: '18 min', status: 'Waiting', abha: '91-1234-5678-9012' },
-      { id: 'A-44', name: 'Robert Smith', age: 55, gender: 'Male', wait: '5 min', status: 'Waiting', abha: '91-9876-5432-1098' },
-      { id: 'A-45', name: 'Emily Davis', age: 28, gender: 'Female', wait: '22 min', status: 'Waiting', abha: '91-5544-3322-1100' },
-      { id: 'A-46', name: 'Michael Brown', age: 47, gender: 'Male', wait: '10 min', status: 'Waiting', abha: '91-1122-3344-5566' }
-  ]);
-
-  const [doctors, setDoctors] = useState([
-      { id: 1, name: "Dr. William Harrison", specialty: "Cardiology", available: true, image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=100", email: "william.h@medicore.com" },
-      { id: 2, name: "Dr. Victoria Adams", specialty: "Urology", available: false, image: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&q=80&w=100", email: "victoria.a@medicore.com" },
-      { id: 3, name: "Dr. Jonathan Bennett", specialty: "Radiology", available: true, image: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=100", email: "jonathan.b@medicore.com" }
-  ]);
+  const [appointments, setAppointments] = useState([]);
+  const [patientsList, setPatientsList] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  
+  const [formData, setFormData] = useState({
+    name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: ''
+  });
 
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [symptomDropdownOpen, setSymptomDropdownOpen] = useState(false);
@@ -31,6 +21,104 @@ const ReceptionistDashboard = () => {
   
   const [selectedSlot, setSelectedSlot] = useState('10:30 AM');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [loading, setLoading] = useState(false);
+
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const openDetailsModal = (app) => {
+    setSelectedAppointment({ ...app });
+    setDetailsModalOpen(true);
+    setTimeout(() => window.lucide && window.lucide.createIcons(), 100);
+  };
+
+  const handleUpdateAppointment = async (app) => {
+    try {
+      await api.put(`/appointments/${app._id}`, { status: app.status, time: app.time });
+      alert("Appointment updated successfully");
+      setDetailsModalOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update appointment");
+    }
+  };
+
+  const handleDeleteAppointment = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this appointment?")) return;
+    try {
+      await api.delete(`/appointments/${id}`);
+      alert("Appointment deleted");
+      setDetailsModalOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to delete appointment");
+    }
+  };
+
+  const fetchData = async () => {
+    try {
+      const pts = await api.get('/patients');
+      setPatientsList(pts.data);
+
+      const apps = await api.get('/appointments');
+      setAppointments(apps.data);
+
+      const docs = await api.get('/auth/doctors');
+      setDoctors(docs.data);
+    } catch (err) {
+      console.error("Failed to fetch data", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const getWeeklyData = () => {
+    const data = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toLocaleDateString();
+      const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+      
+      data.push({
+        label: dayName,
+        fullDate: dateStr,
+        count: 0,
+        walkin: 0,
+        online: 0
+      });
+    }
+
+    appointments.forEach(app => {
+      const appDate = new Date(app.date);
+      const appDateStr = appDate.toLocaleDateString();
+      const dayData = data.find(d => d.fullDate === appDateStr);
+      if (dayData) {
+        dayData.count += 1;
+      }
+    });
+
+    data.forEach(d => {
+       if (d.count > 0) {
+           d.walkin = Math.ceil(d.count * 0.6);
+           d.online = d.count - d.walkin;
+       }
+    });
+
+    return data;
+  };
+
+  const weeklyData = getWeeklyData();
+  const maxCount = Math.max(...weeklyData.map(d => Math.max(d.walkin, d.online)), 5);
+
 
   useEffect(() => {
     if (window.lucide) {
@@ -59,7 +147,50 @@ const ReceptionistDashboard = () => {
   };
 
   const getInitials = (name) => {
+    if (!name) return '??';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+  };
+
+  const handleCreateAppointment = async () => {
+    try {
+      setLoading(true);
+      const patientRes = await api.post('/patients', {
+        name: formData.name,
+        age: parseInt(formData.age) || 30,
+        gender: formData.gender,
+        contact: formData.contact || '+91 0000000000'
+      });
+      const patientId = patientRes.data._id;
+
+      await api.post('/appointments', {
+        patientId,
+        doctorId: formData.doctorId || doctors[0]?._id,
+        date: new Date(),
+        time: selectedSlot,
+        reason: selectedSymptoms.join(', ') || 'General Checkup'
+      });
+
+      await api.post('/billing', {
+        patientId,
+        items: [
+          { description: 'Consultation Fee', amount: 500 },
+          { description: 'Registration Fee', amount: 50 }
+        ],
+        totalAmount: 550,
+        paymentMethod: paymentMethod
+      });
+
+      alert("Appointment created successfully!");
+      setFormData({ name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: '' });
+      setSelectedSymptoms([]);
+      fetchData();
+      switchTab('appointments');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to create appointment');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -87,20 +218,44 @@ const ReceptionistDashboard = () => {
         </div>
       </div>
 
-      <div className="top-nav" style={{ padding: '0 40px', borderBottom: '1px solid #F1F5F9', background: 'white', display: 'flex', alignItems: 'center', height: '72px' }}>
-        <div style={{ flex: 1, maxWidth: '600px', position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <i data-lucide="search" style={{ position: 'absolute', left: '16px', color: '#64748B', width: '18px' }}></i>
-          <input type="text" className="search-input" placeholder="Search patient by mobile/ID" style={{ background: '#F8FAFC', border: 'none', paddingLeft: '48px', height: '44px', width: '100%', borderRadius: '12px', fontSize: '14px', fontWeight: 600 }} />
-          <span style={{ position: 'absolute', right: '16px', fontSize: '11px', fontWeight: 700, color: '#94A3B8', background: 'white', padding: '4px 8px', borderRadius: '6px', border: '1px solid #E2E8F0', pointerEvents: 'none' }}>Ctrl + K</span>
+      <div className="top-nav">
+        <div style={{ flex: 1, maxWidth: '400px', position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <i data-lucide="search" style={{ position: 'absolute', left: '16px', color: '#64748B', width: '16px' }}></i>
+          <input type="text" className="search-input" placeholder="Search..." style={{ background: '#F8FAFC', border: 'none', paddingLeft: '44px', height: '40px', width: '100%', borderRadius: '10px', fontSize: '13px', fontWeight: 600 }} />
+          <span className="desktop-only-flex" style={{ position: 'absolute', right: '12px', fontSize: '10px', fontWeight: 700, color: '#94A3B8', background: 'white', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0', pointerEvents: 'none' }}>Ctrl + K</span>
         </div>
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginLeft: 'auto' }}>
-          <button className="btn" style={{ border: '1px solid var(--danger)', color: 'var(--danger)', background: 'white', borderRadius: '12px', padding: '10px 20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer', transition: '0.3s' }}>
-            <i data-lucide="alert-circle" style={{ width: '20px' }}></i> Emergency
+        
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginLeft: 'auto', flexShrink: 0 }}>
+          <button className="btn desktop-only-flex" style={{ border: '1px solid var(--danger)', color: 'var(--danger)', background: 'white', borderRadius: '10px', padding: '8px 16px', fontWeight: 700, alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+            <i data-lucide="alert-circle" style={{ width: '18px' }}></i> Emergency
           </button>
-          <div className="action-icon-btn" style={{ color: '#64748B', cursor: 'pointer' }}><i data-lucide="settings" style={{ width: '20px' }}></i></div>
-          <div className="action-icon-btn" style={{ position: 'relative', color: '#64748B', cursor: 'pointer' }}>
-            <i data-lucide="bell" style={{ width: '20px' }}></i>
-            <div style={{ position: 'absolute', top: '12px', right: '14px', width: '18px', height: '18px', background: 'var(--danger)', color: 'white', borderRadius: '50%', border: '2px solid white', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>5</div>
+          
+          <div className="action-icon-btn desktop-only-flex" style={{ color: '#64748B' }} onClick={() => switchTab('settings')}>
+            <i data-lucide="settings" style={{ width: '18px' }}></i>
+          </div>
+
+          <div style={{ position: 'relative', zIndex: 2000 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '4px' }} onClick={() => setShowProfileMenu(!showProfileMenu)} className="top-nav-user">
+              <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100" style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover', border: '1.5px solid var(--primary-light)' }} alt="Avatar" />
+              <div style={{ display: 'none', flexDirection: 'column' }} className="desktop-only-flex">
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#1A1D23' }}>{user.name || 'Roshni'}</span>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 700 }}>Receptionist</span>
+              </div>
+              <i data-lucide="chevron-down" style={{ width: '14px', color: '#64748B', transition: '0.3s', transform: showProfileMenu ? 'rotate(180deg)' : 'none' }}></i>
+            </div>
+
+            {showProfileMenu && (
+              <div className="glass-card" style={{ position: 'absolute', top: '100%', right: 0, width: '200px', marginTop: '12px', zIndex: 3000, padding: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', background: 'white' }}>
+                <div style={{ padding: '12px', borderBottom: '1px solid var(--border)', marginBottom: '8px' }}>
+                  <div style={{ fontWeight: 800, fontSize: '14px' }}>{user.name || 'Receptionist'}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>Front Desk Admin</div>
+                </div>
+                <div className="dropdown-item" onClick={() => { setShowProfileMenu(false); switchTab('profile'); }}><i data-lucide="user"></i> Profile</div>
+                <div className="dropdown-item" onClick={() => { setShowProfileMenu(false); switchTab('settings'); }}><i data-lucide="settings"></i> Settings</div>
+                <div style={{ height: '1px', background: 'var(--border)', margin: '8px 0' }}></div>
+                <div className="dropdown-item" onClick={handleLogout} style={{ color: 'var(--danger)' }}><i data-lucide="log-out"></i> Logout</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -108,55 +263,103 @@ const ReceptionistDashboard = () => {
       <div className="main-content">
         {activeTab === 'dash' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+            <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }} className="mobile-stack">
               <div>
-                <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#1A1D23', marginBottom: '8px' }}>Welcome, {user.name || 'Roshni'}</h1>
-                <div style={{ fontSize: '15px', color: '#64748B', fontWeight: 700 }}>Today is {new Date().toLocaleDateString()}</div>
+                <h1 style={{ fontSize: 'var(--f-h1)', fontWeight: 900, color: '#1A1D23', marginBottom: '4px' }}>Welcome, {user.name || 'Roshni'}</h1>
+                <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 700 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
               </div>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', position: 'relative' }}>
-                <button className="btn btn-primary" style={{ height: '52px', padding: '0 32px', fontWeight: 800, borderRadius: '14px', background: 'var(--primary-gradient)', boxShadow: '0 10px 20px rgba(59, 113, 254, 0.2)' }} onClick={() => switchTab('registration-form')}>
-                  <i data-lucide="plus" style={{ width: '20px' }}></i> Create Appointment
-                </button>
+              <button className="btn btn-primary" style={{ height: '48px', padding: '0 24px', fontWeight: 800, borderRadius: '12px', background: 'var(--primary-gradient)', boxShadow: '0 10px 20px rgba(59, 113, 254, 0.1)' }} onClick={() => switchTab('registration-form')}>
+                <i data-lucide="plus" style={{ width: '18px' }}></i> New Appointment
+              </button>
+            </div>
+
+            <div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+              <div className="kpi-card" onClick={() => switchTab('appointments')}>
+                <div className="kpi-icon-box" style={{ background: '#FFF7ED', color: '#EA580C', width: '40px', height: '40px' }}><i data-lucide="calendar" style={{ width: '18px' }}></i></div>
+                <div><div style={{ fontSize: '10px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase' }}>Apps</div><div style={{ fontSize: '20px', fontWeight: 900 }}>{appointments.length}</div></div>
+              </div>
+              <div className="kpi-card" onClick={() => switchTab('patients')}>
+                <div className="kpi-icon-box" style={{ background: '#F0F9FF', color: '#0284C7', width: '40px', height: '40px' }}><i data-lucide="user" style={{ width: '18px' }}></i></div>
+                <div><div style={{ fontSize: '10px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase' }}>Patients</div><div style={{ fontSize: '20px', fontWeight: 900 }}>{patientsList.length}</div></div>
+              </div>
+              <div className="kpi-card" onClick={() => switchTab('staff')}>
+                <div className="kpi-icon-box" style={{ background: '#F5F3FF', color: '#7C3AED', width: '40px', height: '40px' }}><i data-lucide="stethoscope" style={{ width: '18px' }}></i></div>
+                <div><div style={{ fontSize: '10px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase' }}>Doctors</div><div style={{ fontSize: '20px', fontWeight: 900 }}>{doctors.length}</div></div>
+              </div>
+              <div className="kpi-card" onClick={() => switchTab('billing')}>
+                <div className="kpi-icon-box" style={{ background: '#FDF2F8', color: '#DB2777', width: '40px', height: '40px' }}><i data-lucide="wallet" style={{ width: '18px' }}></i></div>
+                <div><div style={{ fontSize: '10px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase' }}>Revenue</div><div style={{ fontSize: '20px', fontWeight: 900 }}>₹5.5k</div></div>
               </div>
             </div>
 
-            <div className="ph-kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: '40px' }}>
-              <div className="kpi-card" style={{ padding: '32px', cursor: 'pointer' }} onClick={() => switchTab('appointments')}>
-                <div className="kpi-icon-box" style={{ background: '#FFF7ED', color: '#EA580C' }}><i data-lucide="calendar"></i></div>
-                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Total Appointments</div><div style={{ fontSize: '26px', fontWeight: 900 }}>218</div></div>
-              </div>
-              <div className="kpi-card" style={{ padding: '32px', cursor: 'pointer' }} onClick={() => switchTab('patients')}>
-                <div className="kpi-icon-box" style={{ background: '#F0F9FF', color: '#0284C7' }}><i data-lucide="user"></i></div>
-                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Total Visits</div><div style={{ fontSize: '26px', fontWeight: 900 }}>500</div></div>
-              </div>
-              <div className="kpi-card" style={{ padding: '32px', cursor: 'pointer' }} onClick={() => switchTab('staff')}>
-                <div className="kpi-icon-box" style={{ background: '#F5F3FF', color: '#7C3AED' }}><i data-lucide="stethoscope"></i></div>
-                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Total Doctors</div><div style={{ fontSize: '26px', fontWeight: 900 }}>54</div></div>
-              </div>
-              <div className="kpi-card" style={{ padding: '32px', cursor: 'pointer' }} onClick={() => switchTab('billing')}>
-                <div className="kpi-icon-box" style={{ background: '#FDF2F8', color: '#DB2777' }}><i data-lucide="wallet"></i></div>
-                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Total Revenue</div><div style={{ fontSize: '26px', fontWeight: 900 }}>₹2,18,500</div></div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '40px', marginBottom: '40px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '40px', marginBottom: '40px' }} className="mobile-stack">
               <div className="glass-card" style={{ padding: '32px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                     <h3 style={{ fontSize: '20px', fontWeight: 900, color: '#1A1D23' }}>Weekly Patient Trend</h3>
+                    <div className="chart-legend-inline">
+                      <div className="legend-item-small">
+                        <div className="legend-dot" style={{ background: '#7C3AED' }}></div>
+                        Walk-ins
+                      </div>
+                      <div className="legend-item-small">
+                        <div className="legend-dot" style={{ background: 'var(--primary)' }}></div>
+                        Online
+                      </div>
+                    </div>
                   </div>
                   <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '11px', borderRadius: '10px', background: '#F1F5F9', fontWeight: 800 }}>View All</button>
                 </div>
                 
-                <div style={{ height: '220px', position: 'relative', marginBottom: '24px' }}>
+                <div className="table-responsive" style={{ height: '220px', position: 'relative', marginBottom: '24px', overflowY: 'hidden' }}>
                   <div className="chart-glow-bg"></div>
-                  <div className="bar-chart-container">
-                    <div style={{display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: '100%', width: '100%', paddingBottom: '20px', position: 'absolute', bottom: 0}}>
-                       <div style={{width: '20px', height: '40%', background: 'var(--primary)', borderRadius: '4px'}}></div>
-                       <div style={{width: '20px', height: '60%', background: 'var(--primary)', borderRadius: '4px'}}></div>
-                       <div style={{width: '20px', height: '80%', background: 'var(--primary)', borderRadius: '4px'}}></div>
-                       <div style={{width: '20px', height: '50%', background: 'var(--primary)', borderRadius: '4px'}}></div>
-                       <div style={{width: '20px', height: '70%', background: 'var(--primary)', borderRadius: '4px'}}></div>
+                  <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '180px', pointerEvents: 'none' }}>
+                    <div style={{ height: '33.3%', borderBottom: '1px solid #F1F5F9' }}></div>
+                    <div style={{ height: '33.3%', borderBottom: '1px solid #F1F5F9' }}></div>
+                    <div style={{ height: '33.3%', borderBottom: '1px solid #F1F5F9' }}></div>
+                  </div>
+
+                  <div className="bar-chart-container" style={{ minWidth: '500px' }}>
+                    {weeklyData.map((day, idx) => {
+                       const walkinPercent = Math.max((day.walkin / maxCount) * 100, 5);
+                       const onlinePercent = Math.max((day.online / maxCount) * 100, 5);
+                       
+                       return (
+                         <div key={idx} className="bar-group">
+                           <div className="bar-pair">
+                             <div className="chart-bar walkin" style={{ height: `${walkinPercent}%` }}>
+                               <div className="bar-tooltip">{day.walkin} Walk-ins</div>
+                             </div>
+                             <div className="chart-bar online" style={{ height: `${onlinePercent}%` }}>
+                               <div className="bar-tooltip">{day.online} Online</div>
+                             </div>
+                           </div>
+                           <div className="bar-label" style={{ marginTop: '12px' }}>{day.label}</div>
+                         </div>
+                       )
+                    })}
+                  </div>
+                </div>
+
+                <div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid #F1F5F9', paddingTop: '24px', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#F0F4FF', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i data-lucide="user" style={{ width: '16px' }}></i></div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontWeight: 900, fontSize: '14px', color: '#1A1D23' }}>Walk-In</span>
+                        <span style={{ fontWeight: 800, fontSize: '12px', color: 'var(--primary)' }}>60%</span>
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#10B981', fontWeight: 800 }}>-15% Trend</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#F5F3FF', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i data-lucide="globe" style={{ width: '16px' }}></i></div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontWeight: 900, fontSize: '14px', color: '#1A1D23' }}>Online</span>
+                        <span style={{ fontWeight: 800, fontSize: '12px', color: '#7C3AED' }}>40%</span>
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#10B981', fontWeight: 800 }}>+12% Trend</div>
                     </div>
                   </div>
                 </div>
@@ -168,13 +371,17 @@ const ReceptionistDashboard = () => {
                   <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '11px', borderRadius: '10px', background: '#F1F5F9', fontWeight: 800 }}>View All</button>
                 </div>
                 <div className="avail-list">
-                  {doctors.map(doc => (
-                    <div key={doc.id} className="avail-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  {doctors.length === 0 ? (
+                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>No doctors found.</div>
+                  ) : doctors.map(doc => (
+                    <div key={doc._id || doc.id} className="avail-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                       <div className="avail-info" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <img src={doc.image} style={{ width: '44px', height: '44px', borderRadius: '12px', objectFit: 'cover' }} alt="Doc" />
-                        <div><div style={{ fontWeight: 900, fontSize: '14px', color: '#1A1D23' }}>{doc.name}</div><p style={{ fontSize: '12px', color: '#64748B', fontWeight: 700 }}>{doc.specialty}</p></div>
+                        <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800 }}>
+                          {doc.name ? doc.name.substring(0,2).toUpperCase() : 'DR'}
+                        </div>
+                        <div><div style={{ fontWeight: 900, fontSize: '14px', color: '#1A1D23' }}>{doc.name || 'Unnamed Doctor'}</div><p style={{ fontSize: '12px', color: '#64748B', fontWeight: 700 }}>{doc.specialty || 'General Physician'}</p></div>
                       </div>
-                      <span className={`status-badge ${doc.available ? 'available' : 'unavailable'}`} style={{ fontSize: '10px', borderRadius: '8px', padding: '6px 12px' }}>{doc.available ? 'Available' : 'On Break'}</span>
+                      <span className="status-badge available" style={{ fontSize: '10px', borderRadius: '8px', padding: '6px 12px' }}>Available</span>
                     </div>
                   ))}
                 </div>
@@ -186,30 +393,36 @@ const ReceptionistDashboard = () => {
                 <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Latest Appointments</h3>
                 <button className="btn btn-secondary" style={{ padding: '6px 16px', fontSize: '12px' }}>View All</button>
               </div>
-              <table className="elite-table" style={{ margin: 0, border: 'none', boxShadow: 'none' }}>
-                <thead><tr><th>Patient ID</th><th>Patient Name</th><th>Doctor Name</th><th>Status</th><th>Date & Time</th></tr></thead>
-                <tbody>
-                  {appointments.map(app => (
-                    <tr key={app.id}>
-                      <td>{app.id}</td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <img src={app.avatar} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="Patient" />
-                          <span style={{ fontWeight: 700 }}>{app.name}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <img src={app.docAvatar} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} alt="Doc" />
-                          <span style={{ fontWeight: 600, fontSize: '13px' }}>{app.doctor}</span>
-                        </div>
-                      </td>
-                      <td><span className="status-badge upcoming" style={{ fontSize: '11px' }}>{app.status}</span></td>
-                      <td style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-muted)' }}>{app.time}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+               <div className="table-responsive">
+                 <table className="elite-table" style={{ margin: 0, border: 'none', boxShadow: 'none' }}>
+                   <thead><tr><th>Patient ID</th><th>Patient Name</th><th>Doctor Name</th><th>Status</th><th>Date & Time</th><th>Action</th></tr></thead>
+                   <tbody>
+                     {appointments.length === 0 ? (
+                       <tr><td colSpan="6" style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-muted)' }}>No recent appointments found.</td></tr>
+                     ) : appointments.slice(0, 5).map(app => (
+                       <tr key={app._id || app.id}>
+                         <td>#{app.patientId?._id?.substring(18).toUpperCase() || 'ID'}</td>
+                         <td>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                             <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px' }}>
+                               {(app.patientId?.name || 'Unknown').substring(0, 1).toUpperCase()}
+                             </div>
+                             <span style={{ fontWeight: 700 }}>{app.patientId?.name || 'Unknown Patient'}</span>
+                           </div>
+                         </td>
+                         <td>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                             <span style={{ fontWeight: 600, fontSize: '13px' }}>{app.doctorId?.name || app.doctor}</span>
+                           </div>
+                         </td>
+                         <td><span className="status-badge upcoming" style={{ fontSize: '11px' }}>{app.status}</span></td>
+                         <td style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-muted)' }}>{app.time}</td>
+                         <td><button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }} onClick={() => openDetailsModal(app)}>View Details</button></td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+               </div>
             </div>
           </div>
         )}
@@ -217,7 +430,7 @@ const ReceptionistDashboard = () => {
         {/* PATIENTS TAB */}
         {activeTab === 'patients' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+            <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
               <div>
                 <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1D23', marginBottom: '4px' }}>Patients</h2>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700 }}>Home <span style={{ margin: '0 8px' }}>»</span> <span style={{ color: '#1A1D23' }}>Patients</span></div>
@@ -228,17 +441,18 @@ const ReceptionistDashboard = () => {
             </div>
             
             <div className="glass-card" style={{ padding: '24px' }}>
-              <div className="flex-between" style={{ marginBottom: '24px' }}>
-                <div className="search-wrapper" style={{ margin: 0, maxWidth: '400px' }}>
-                    <i data-lucide="search"></i>
-                    <input type="text" className="search-input" placeholder="Search Patients..." />
+              <div className="filter-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div style={{ flex: 1, maxWidth: '400px', position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <i data-lucide="search" style={{ position: 'absolute', left: '16px', color: '#64748B', width: '18px' }}></i>
+                    <input type="text" className="search-input" placeholder="Search Patients..." style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', paddingLeft: '44px', height: '44px', width: '100%', borderRadius: '12px', fontSize: '14px', fontWeight: 600 }} />
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button className="btn btn-secondary" style={{ padding: '0 16px', height: '44px' }}><i data-lucide="filter" style={{ width: '18px' }}></i> Filter</button>
-                    <button className="btn btn-secondary" style={{ padding: '0 16px', height: '44px' }}><i data-lucide="download" style={{ width: '18px' }}></i> Export</button>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button className="btn btn-secondary" style={{ padding: '0 16px', height: '44px', display: 'flex', alignItems: 'center', gap: '8px' }}><i data-lucide="filter" style={{ width: '18px' }}></i> Filter</button>
+                    <button className="btn btn-secondary" style={{ padding: '0 16px', height: '44px', display: 'flex', alignItems: 'center', gap: '8px' }}><i data-lucide="download" style={{ width: '18px' }}></i> Export</button>
                 </div>
               </div>
-               <table className="elite-table" style={{ margin: 0, borderCollapse: 'collapse', borderSpacing: 0 }}>
+               <div className="table-responsive">
+                 <table className="elite-table" style={{ margin: 0, borderCollapse: 'collapse', borderSpacing: 0 }}>
                   <thead style={{ background: '#F8FAFC' }}>
                       <tr>
                           <th style={{ width: '40px' }}><input type="checkbox" style={{ width: '16px', height: '16px', borderRadius: '4px' }} /></th>
@@ -251,10 +465,10 @@ const ReceptionistDashboard = () => {
                       </tr>
                   </thead>
                   <tbody>
-                    {mockQueue.map(p => (
-                      <tr key={p.id} className="patients-table" style={{ borderBottom: '1px solid #F1F5F9' }}>
+                    {patientsList.map(p => (
+                      <tr key={p._id} className="patients-table" style={{ borderBottom: '1px solid #F1F5F9' }}>
                           <td><input type="checkbox" style={{ width: '16px', height: '16px', borderRadius: '4px' }} /></td>
-                          <td style={{ color: '#64748B', fontWeight: 600 }}>#{p.id}</td>
+                          <td style={{ color: '#64748B', fontWeight: 600 }}>#{p._id.substring(18).toUpperCase()}</td>
                           <td>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => switchTab('patient-details')}>
                                   <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px' }}>
@@ -264,8 +478,8 @@ const ReceptionistDashboard = () => {
                               </div>
                           </td>
                           <td style={{ color: '#64748B', fontWeight: 600 }}>{p.gender}</td>
-                          <td style={{ color: '#64748B', fontWeight: 600 }}>+91 9876543210</td>
-                          <td style={{ color: '#64748B', fontWeight: 600 }}>{p.name.split(' ')[0].toLowerCase()}@example.com</td>
+                          <td style={{ color: '#64748B', fontWeight: 600 }}>{p.contact}</td>
+                          <td style={{ color: '#64748B', fontWeight: 600 }}>{p.email || 'N/A'}</td>
                           <td><i data-lucide="more-vertical" style={{ width: '18px', color: '#64748B', cursor: 'pointer' }}></i></td>
                       </tr>
                     ))}
@@ -273,6 +487,7 @@ const ReceptionistDashboard = () => {
               </table>
             </div>
           </div>
+        </div>
         )}
 
         {/* PATIENT DETAILS TAB */}
@@ -289,7 +504,6 @@ const ReceptionistDashboard = () => {
             </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '32px' }}>
-                {/* Left Col: Profile & Info */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div className="glass-card" style={{ padding: '24px' }}>
                         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', marginBottom: '24px', position: 'relative' }}>
@@ -316,7 +530,6 @@ const ReceptionistDashboard = () => {
                     </div>
                 </div>
 
-                {/* Right Col: Hubs */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div className="glass-card" style={{ padding: 0 }}>
                         <div style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9' }}>
@@ -324,7 +537,6 @@ const ReceptionistDashboard = () => {
                             <button className="btn btn-secondary" style={{ height: '32px', fontSize: '11px', padding: '0 12px', fontWeight: 800 }}>View All</button>
                         </div>
                         <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                            {/* Upcoming Card */}
                             <div style={{ padding: '24px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                     <span style={{ background: '#EFF6FF', color: '#3B82F6', fontSize: '11px', padding: '4px 12px', borderRadius: '6px', fontWeight: 800 }}>Upcoming</span>
@@ -336,7 +548,6 @@ const ReceptionistDashboard = () => {
                                 </div>
                                 <div><div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Date & Time</div><div style={{ fontSize: '13px', fontWeight: 700 }}>21 Dec 2024, 07:00 AM</div></div>
                             </div>
-                             {/* Completed Card */}
                              <div style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                     <span style={{ background: '#F0FDF4', color: '#10B981', fontSize: '11px', padding: '4px 12px', borderRadius: '6px', fontWeight: 800 }}>Completed</span>
@@ -369,37 +580,33 @@ const ReceptionistDashboard = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                     <div className="form-group">
                         <label>Full Name <span style={{ color: '#EF4444' }}>*</span></label>
-                        <input type="text" className="form-control" placeholder="Enter full name" style={{ height: '48px', borderRadius: '8px' }} />
+                        <input type="text" className="form-control" placeholder="Enter full name" style={{ height: '48px', borderRadius: '8px' }} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                     </div>
                     <div className="form-group">
                         <label>Gender <span style={{ color: '#EF4444' }}>*</span></label>
-                        <select className="form-control" style={{ height: '48px', borderRadius: '8px' }}>
-                            <option>Male</option>
-                            <option>Female</option>
-                            <option>Other</option>
+                        <select className="form-control" style={{ height: '48px', borderRadius: '8px' }} value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})}>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>DOB / Age <span style={{ color: '#EF4444' }}>*</span></label>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <input type="date" className="form-control" defaultValue="1990-06-24" style={{ height: '48px', borderRadius: '8px', flex: 1 }} />
-                            <div style={{ width: '60px', height: '48px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#64748B' }}>33 Y</div>
-                        </div>
+                        <label>Age <span style={{ color: '#EF4444' }}>*</span></label>
+                        <input type="number" className="form-control" placeholder="Age" style={{ height: '48px', borderRadius: '8px' }} value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} />
                     </div>
                     <div className="form-group">
                         <label>Mobile Number <span style={{ color: '#EF4444' }}>*</span></label>
-                        <input type="text" className="form-control" placeholder="Enter Mobile Number" style={{ height: '48px', borderRadius: '8px' }} />
+                        <input type="text" className="form-control" placeholder="Enter Mobile Number" style={{ height: '48px', borderRadius: '8px' }} value={formData.contact} onChange={e => setFormData({...formData, contact: e.target.value})} />
                     </div>
                     <div className="form-group">
                         <label>Email <span style={{ color: '#EF4444' }}>*</span></label>
                         <div style={{ position: 'relative' }}>
                             <i data-lucide="mail" style={{ position: 'absolute', left: '16px', top: '14px', color: '#CBD5E1', width: '18px' }}></i>
-                            <input type="text" className="form-control" placeholder="Enter Email" style={{ height: '48px', borderRadius: '8px', paddingLeft: '48px' }} />
+                            <input type="text" className="form-control" placeholder="Enter Email" style={{ height: '48px', borderRadius: '8px', paddingLeft: '48px' }} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                         </div>
                     </div>
                 </div>
 
-                {/* Section 2 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
                     <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3B82F6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>2</div>
                     <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1A1D23' }}>Visit & Appointment Details</h2>
@@ -434,10 +641,12 @@ const ReceptionistDashboard = () => {
                         </div>
                     </div>
                     <div className="form-group">
-                        <label>Department <span style={{ color: '#EF4444' }}>*</span></label>
-                        <select className="form-control" style={{ height: '48px', borderRadius: '8px' }}>
-                            <option>General Medicine</option>
-                            <option>Cardiology</option>
+                        <label>Select Doctor <span style={{ color: '#EF4444' }}>*</span></label>
+                        <select className="form-control" style={{ height: '48px', borderRadius: '8px' }} value={formData.doctorId} onChange={e => setFormData({...formData, doctorId: e.target.value})}>
+                            <option value="">-- Choose Doctor --</option>
+                            {doctors.map(doc => (
+                                <option key={doc._id} value={doc._id}>{doc.name}</option>
+                            ))}
                         </select>
                     </div>
                 </div>
@@ -454,7 +663,6 @@ const ReceptionistDashboard = () => {
                     </div>
                 </div>
 
-                {/* Section 4 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
                     <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3B82F6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>3</div>
                     <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1A1D23' }}>Billing & Payment</h2>
@@ -483,11 +691,8 @@ const ReceptionistDashboard = () => {
                     <div style={{ display: 'flex', gap: '12px', flex: 1 }}>
                         <button className="btn btn-secondary" style={{ height: '54px', flex: 1, justifyContent: 'center', fontWeight: 700, borderRadius: '10px' }}>Save as Draft</button>
                     </div>
-                    <button className="btn btn-primary" style={{ width: '400px', height: '54px', fontWeight: 800, fontSize: '16px', borderRadius: '10px', justifyContent: 'center', gap: '12px' }} onClick={() => {
-                        alert("Appointment created successfully!");
-                        switchTab('appointments');
-                    }}>
-                        <i data-lucide="qr-code"></i> Confirm & Generate Token
+                    <button className="btn btn-primary" style={{ width: '400px', height: '54px', fontWeight: 800, fontSize: '16px', borderRadius: '10px', justifyContent: 'center', gap: '12px' }} onClick={handleCreateAppointment} disabled={loading}>
+                        <i data-lucide="qr-code"></i> {loading ? 'Processing...' : 'Confirm & Generate Token'}
                     </button>
                 </div>
               </div>
@@ -496,76 +701,87 @@ const ReceptionistDashboard = () => {
 
         {/* APPOINTMENTS TAB */}
         {activeTab === 'appointments' && (
-            <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1D23' }}>Appointments</h2>
-                  <button className="btn btn-primary" onClick={() => switchTab('registration-form')}>Create Appointment</button>
-              </div>
-              <div className="glass-card" style={{ padding: '24px' }}>
-                  <table className="elite-table" style={{ margin: 0 }}>
-                      <thead style={{ background: '#F8FAFC' }}>
-                          <tr>
-                              <th>Patient</th>
-                              <th>Doctor</th>
-                              <th>Time</th>
-                              <th>Status</th>
-                              <th>Action</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          {appointments.map(app => (
-                              <tr key={app.id}>
-                                  <td>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                          <img src={app.avatar} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="Avatar" />
-                                          <span style={{ fontWeight: 700, color: '#1A1D23' }}>{app.name}</span>
-                                      </div>
-                                  </td>
-                                  <td>{app.doctor}</td>
-                                  <td style={{ fontWeight: 600 }}>{app.time}</td>
-                                  <td><span className="status-badge upcoming">{app.status}</span></td>
-                                  <td><button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>View Details</button></td>
-                              </tr>
-                          ))}
-                      </tbody>
-                  </table>
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
+            <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1D23' }}>Appointments</h2>
+              <button className="btn btn-primary" onClick={() => switchTab('registration-form')}>Create Appointment</button>
+            </div>
+            <div className="glass-card" style={{ padding: '24px' }}>
+              <div className="table-responsive">
+                <table className="elite-table" style={{ margin: 0 }}>
+                  <thead style={{ background: '#F8FAFC' }}>
+                    <tr>
+                      <th>Patient</th>
+                      <th>Doctor</th>
+                      <th>Time</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {appointments.map(app => (
+                      <tr key={app._id || app.id}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px' }}>
+                              {getInitials(app.patientId?.name || 'Unknown')}
+                            </div>
+                            <span style={{ fontWeight: 700, color: '#1A1D23' }}>{app.patientId?.name || 'Unknown Patient'}</span>
+                          </div>
+                        </td>
+                        <td>{app.doctorId?.name || app.doctor}</td>
+                        <td style={{ fontWeight: 600 }}>{app.time}</td>
+                        <td><span className="status-badge upcoming">{app.status}</span></td>
+                        <td><button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => openDetailsModal(app)}>View Details</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
+          </div>
         )}
 
         {/* STAFF TAB */}
         {activeTab === 'staff' && (
             <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1D23' }}>Staff Management</h2>
                   <button className="btn btn-primary">Add Staff</button>
               </div>
               <div className="glass-card" style={{ padding: '24px' }}>
-                  <table className="elite-table" style={{ margin: 0 }}>
-                      <thead style={{ background: '#F8FAFC' }}>
-                          <tr>
-                              <th>Staff Name</th>
-                              <th>Role</th>
-                              <th>Contact</th>
-                              <th>Status</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          {doctors.map(doc => (
-                              <tr key={doc.id}>
-                                  <td>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                          <img src={doc.image} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="Avatar" />
-                                          <span style={{ fontWeight: 700, color: '#1A1D23' }}>{doc.name}</span>
-                                      </div>
-                                  </td>
-                                  <td>{doc.specialty}</td>
-                                  <td>{doc.email}</td>
-                                  <td><span className={`status-badge ${doc.available ? 'available' : 'unavailable'}`}>{doc.available ? 'Available' : 'On Break'}</span></td>
-                              </tr>
-                          ))}
-                      </tbody>
-                  </table>
+                  <div className="table-responsive">
+                    <table className="elite-table" style={{ margin: 0 }}>
+                        <thead style={{ background: '#F8FAFC' }}>
+                            <tr>
+                                <th>Staff Name</th>
+                                <th>Role</th>
+                                <th>Contact</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {doctors.map(doc => (
+                                <tr key={doc._id || doc.id}>
+                                    <td>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px' }}>
+                                              {getInitials(doc.name || 'Staff')}
+                                            </div>
+                                            <span style={{ fontWeight: 700, color: '#1A1D23' }}>{doc.name || 'Unnamed Staff'}</span>
+                                        </div>
+                                    </td>
+                                    <td style={{ fontWeight: 600 }}>{doc.specialty || 'General Physician'}</td>
+                                    <td>
+                                        <div style={{ fontSize: '13px', fontWeight: 700 }}>ID: {doc.staff_id || 'N/A'}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{doc.name ? `${doc.name.split(' ')[0].toLowerCase()}@medicore.com` : 'Contact Required'}</div>
+                                    </td>
+                                    <td><span className="status-badge available">Available</span></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                  </div>
               </div>
             </div>
         )}
@@ -592,37 +808,266 @@ const ReceptionistDashboard = () => {
                   </div>
               </div>
               <div className="glass-card" style={{ padding: '24px' }}>
-                  <table className="elite-table" style={{ margin: 0 }}>
-                      <thead style={{ background: '#F8FAFC' }}>
-                          <tr>
-                              <th>Invoice ID</th>
-                              <th>Patient Name</th>
-                              <th>Date</th>
-                              <th>Amount</th>
-                              <th>Status</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          <tr>
-                              <td style={{ fontWeight: 700, color: 'var(--primary)' }}>#INV-0992</td>
-                              <td style={{ fontWeight: 600 }}>Reyan Verol</td>
-                              <td>24 May 2024</td>
-                              <td style={{ fontWeight: 800 }}>₹550.00</td>
-                              <td><span className="status-badge available">Paid</span></td>
-                          </tr>
-                          <tr>
-                              <td style={{ fontWeight: 700, color: 'var(--primary)' }}>#INV-0991</td>
-                              <td style={{ fontWeight: 600 }}>Sarah Jenkins</td>
-                              <td>24 May 2024</td>
-                              <td style={{ fontWeight: 800 }}>₹1200.00</td>
-                              <td><span className="status-badge pending">Pending</span></td>
-                          </tr>
-                      </tbody>
-                  </table>
+                  <div className="table-responsive">
+                    <table className="elite-table" style={{ margin: 0 }}>
+                        <thead style={{ background: '#F8FAFC' }}>
+                            <tr>
+                                <th>Invoice ID</th>
+                                <th>Patient Name</th>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style={{ fontWeight: 700, color: 'var(--primary)' }}>#INV-0992</td>
+                                <td style={{ fontWeight: 600 }}>Reyan Verol</td>
+                                <td>24 May 2024</td>
+                                <td style={{ fontWeight: 800 }}>₹550.00</td>
+                                <td><span className="status-badge available">Paid</span></td>
+                            </tr>
+                            <tr>
+                                <td style={{ fontWeight: 700, color: 'var(--primary)' }}>#INV-0991</td>
+                                <td style={{ fontWeight: 600 }}>Sarah Jenkins</td>
+                                <td>24 May 2024</td>
+                                <td style={{ fontWeight: 800 }}>₹1200.00</td>
+                                <td><span className="status-badge pending">Pending</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                  </div>
               </div>
             </div>
         )}
 
+        {/* PROFILE TAB */}
+        {activeTab === 'profile' && (
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
+            <div className="dashboard-header" style={{ marginBottom: '32px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1D23' }}>My Profile</h2>
+              <p style={{ color: '#64748B', fontWeight: 600 }}>Manage your personal information and security</p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '32px' }} className="mobile-stack">
+              <div className="glass-card" style={{ padding: '32px', textAlign: 'center' }}>
+                <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 24px' }}>
+                  <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid var(--primary-light)' }} alt="Profile" />
+                  <div style={{ position: 'absolute', bottom: '0', right: '0', width: '36px', height: '36px', background: 'var(--primary)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid white', cursor: 'pointer' }}>
+                    <i data-lucide="camera" style={{ width: '16px' }}></i>
+                  </div>
+                </div>
+                <h3 style={{ fontSize: '20px', fontWeight: 900, color: '#1A1D23', marginBottom: '4px' }}>{user.name || 'Roshni Singh'}</h3>
+                <p style={{ fontSize: '14px', color: '#64748B', fontWeight: 700, marginBottom: '24px' }}>Senior Receptionist</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
+                  <div style={{ padding: '12px', background: '#F8FAFC', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <i data-lucide="mail" style={{ width: '18px', color: 'var(--primary)' }}></i>
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>{user.email || 'roshni@medicore.com'}</span>
+                  </div>
+                  <div style={{ padding: '12px', background: '#F8FAFC', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <i data-lucide="phone" style={{ width: '18px', color: 'var(--primary)' }}></i>
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>+91 98765 43210</span>
+                  </div>
+                </div>
+                <button className="btn btn-secondary" style={{ width: '100%', marginTop: '32px', justifyContent: 'center', color: 'var(--danger)', border: '1px solid #FEE2E2' }} onClick={handleLogout}>
+                  <i data-lucide="log-out"></i> Logout Account
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div className="glass-card" style={{ padding: '32px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '24px' }}>Edit Profile</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+                    <div className="form-group">
+                      <label>Full Name</label>
+                      <input type="text" className="form-control" defaultValue={user.name || 'Roshni Singh'} style={{ height: '48px' }} />
+                    </div>
+                    <div className="form-group">
+                      <label>Email Address</label>
+                      <input type="email" className="form-control" defaultValue={user.email || 'roshni@medicore.com'} style={{ height: '48px' }} />
+                    </div>
+                    <div className="form-group">
+                      <label>Mobile Number</label>
+                      <input type="text" className="form-control" defaultValue="+91 98765 43210" style={{ height: '48px' }} />
+                    </div>
+                    <div className="form-group">
+                      <label>Employee ID</label>
+                      <input type="text" className="form-control" defaultValue="MED-RE-099" readOnly style={{ height: '48px', background: '#F8FAFC' }} />
+                    </div>
+                  </div>
+                  <button className="btn btn-primary" style={{ padding: '0 32px', height: '48px' }}>Save Changes</button>
+                </div>
+
+                <div className="glass-card" style={{ padding: '32px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '24px' }}>Change Password</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+                    <div className="form-group">
+                      <label>Current Password</label>
+                      <input type="password" className="form-control" placeholder="********" style={{ height: '48px' }} />
+                    </div>
+                    <div className="form-group">
+                      <label>New Password</label>
+                      <input type="password" className="form-control" placeholder="New Password" style={{ height: '48px' }} />
+                    </div>
+                    <div className="form-group">
+                      <label>Confirm Password</label>
+                      <input type="password" className="form-control" placeholder="Confirm Password" style={{ height: '48px' }} />
+                    </div>
+                  </div>
+                  <button className="btn btn-primary" style={{ padding: '0 32px', height: '48px' }}>Update Password</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SETTINGS TAB */}
+        {activeTab === 'settings' && (
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
+            <div className="dashboard-header" style={{ marginBottom: '32px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1D23' }}>System Settings</h2>
+              <p style={{ color: '#64748B', fontWeight: 600 }}>Configure your workspace and preferences</p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+              <div className="glass-card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                  <div style={{ width: '40px', height: '40px', background: '#EFF6FF', color: 'var(--primary)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i data-lucide="bell" style={{ width: '20px' }}></i></div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Notifications</h3>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div><div style={{ fontSize: '14px', fontWeight: 700 }}>Email Alerts</div><div style={{ fontSize: '12px', color: '#64748B' }}>Receive daily summaries</div></div>
+                    <input type="checkbox" defaultChecked />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div><div style={{ fontSize: '14px', fontWeight: 700 }}>Push Notifications</div><div style={{ fontSize: '12px', color: '#64748B' }}>Instant app alerts</div></div>
+                    <input type="checkbox" defaultChecked />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div><div style={{ fontSize: '14px', fontWeight: 700 }}>SMS Updates</div><div style={{ fontSize: '12px', color: '#64748B' }}>Patient appointment reminders</div></div>
+                    <input type="checkbox" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                  <div style={{ width: '40px', height: '40px', background: '#F0FDF4', color: '#10B981', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i data-lucide="shield" style={{ width: '20px' }}></i></div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Privacy & Security</h3>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div><div style={{ fontSize: '14px', fontWeight: 700 }}>Two-Factor Auth</div><div style={{ fontSize: '12px', color: '#64748B' }}>Extra layer of security</div></div>
+                    <button className="btn btn-secondary" style={{ fontSize: '11px', padding: '6px 12px' }}>Enable</button>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div><div style={{ fontSize: '14px', fontWeight: 700 }}>Active Sessions</div><div style={{ fontSize: '12px', color: '#64748B' }}>Manage logged-in devices</div></div>
+                    <button className="btn btn-secondary" style={{ fontSize: '11px', padding: '6px 12px' }}>View</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                  <div style={{ width: '40px', height: '40px', background: '#FFFBEB', color: '#F59E0B', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i data-lucide="palette" style={{ width: '20px' }}></i></div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Appearance</h3>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div><div style={{ fontSize: '14px', fontWeight: 700 }}>Dark Mode</div><div style={{ fontSize: '12px', color: '#64748B' }}>Toggle system theme</div></div>
+                    <button className="btn btn-secondary" style={{ fontSize: '11px', padding: '6px 12px' }}>Enable</button>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div><div style={{ fontSize: '14px', fontWeight: 700 }}>Compact View</div><div style={{ fontSize: '12px', color: '#64748B' }}>Higher density layout</div></div>
+                    <input type="checkbox" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* MOBILE BOTTOM NAV */}
+      <div className="mobile-bottom-nav">
+        <div className={`mob-nav-item ${activeTab === 'dash' ? 'active' : ''}`} onClick={() => switchTab('dash')}>
+          <i data-lucide="layout-grid"></i><span>Home</span>
+        </div>
+        <div className={`mob-nav-item ${activeTab === 'appointments' ? 'active' : ''}`} onClick={() => switchTab('appointments')}>
+          <i data-lucide="calendar"></i><span>Apps</span>
+        </div>
+        <div className={`mob-nav-item ${activeTab === 'patients' ? 'active' : ''}`} onClick={() => switchTab('patients')}>
+          <i data-lucide="users"></i><span>Patients</span>
+        </div>
+        <div className={`mob-nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => switchTab('billing')}>
+          <i data-lucide="wallet"></i><span>Bills</span>
+        </div>
+      </div>
+
+      {/* APPOINTMENT DETAILS MODAL */}
+      {detailsModalOpen && selectedAppointment && (
+        <div className="details-modal-overlay" onClick={() => setDetailsModalOpen(false)}>
+          <div className="details-modal-card" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#1A1D23' }}>Appointment Details</h2>
+              <button className="btn-close" onClick={() => setDetailsModalOpen(false)}><i data-lucide="x"></i></button>
+            </div>
+            
+            <div style={{ marginBottom: '32px' }}>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800 }}>
+                  {getInitials(selectedAppointment.patientId?.name)}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '18px', color: '#1A1D23' }}>{selectedAppointment.patientId?.name}</div>
+                  <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>ID: #{selectedAppointment.patientId?._id?.substring(18).toUpperCase()}</div>
+                </div>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, marginBottom: '8px', color: '#1A1D23' }}>Status</label>
+                  <select 
+                    className="form-control" 
+                    style={{ background: 'white', border: '1px solid #CBD5E1', borderRadius: '10px', height: '44px', width: '100%', padding: '0 12px', fontWeight: 600 }}
+                    value={selectedAppointment.status} 
+                    onChange={(e) => setSelectedAppointment({...selectedAppointment, status: e.target.value})}
+                  >
+                    <option value="Upcoming">Upcoming</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, marginBottom: '8px', color: '#1A1D23' }}>Reschedule Time</label>
+                  <input 
+                    type="time" 
+                    className="form-control" 
+                    style={{ background: 'white', border: '1px solid #CBD5E1', borderRadius: '10px', height: '44px', width: '100%', padding: '0 12px', fontWeight: 600 }}
+                    value={selectedAppointment.time} 
+                    onChange={(e) => setSelectedAppointment({...selectedAppointment, time: e.target.value})} 
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button className="btn" style={{ background: '#FEE2E2', color: '#EF4444', fontWeight: 800, padding: '0 20px', borderRadius: '10px', height: '44px' }} onClick={() => handleDeleteAppointment(selectedAppointment._id)}>Delete</button>
+              <button className="btn btn-primary" style={{ fontWeight: 800, padding: '0 24px', borderRadius: '10px', height: '44px' }} onClick={() => handleUpdateAppointment(selectedAppointment)}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="mobile-bottom-nav">
+        <div className={`mob-nav-item ${activeTab === 'dash' ? 'active' : ''}`} onClick={() => switchTab('dash')}><i data-lucide="layout-grid"></i><span>Home</span></div>
+        <div className={`mob-nav-item ${activeTab === 'registration-form' ? 'active' : ''}`} onClick={() => switchTab('registration-form')}><i data-lucide="calendar"></i><span>Apps</span></div>
+        <div className={`mob-nav-item ${['patients', 'patient-details'].includes(activeTab) ? 'active' : ''}`} onClick={() => switchTab('patients')}><i data-lucide="users"></i><span>Patients</span></div>
+        <div className={`mob-nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => switchTab('billing')}><i data-lucide="wallet"></i><span>Bills</span></div>
       </div>
     </>
   );

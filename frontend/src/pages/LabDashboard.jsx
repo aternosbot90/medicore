@@ -1,27 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const LabDashboard = () => {
   const [activeTab, setActiveTab] = useState('lab-dash');
   const [activeSampleForEntry, setActiveSampleForEntry] = useState(null);
   const [showCollectModal, setShowCollectModal] = useState(false);
   const [selectedReqForCollection, setSelectedReqForCollection] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const [labRequests, setLabRequests] = useState([
-    { id: 'LR-1001', patient: 'Johnathan Doe', test: 'Complete Blood Count', doctor: 'Dr. Harrison', time: '10:45 AM', priority: 'High', status: 'Pending' },
-    { id: 'LR-1002', patient: 'Sarah Jenkins', test: 'Lipid Profile', doctor: 'Dr. Adams', time: '11:15 AM', priority: 'Normal', status: 'Pending' },
-    { id: 'LR-1003', patient: 'Robert Smith', test: 'Liver Function Test', doctor: 'Dr. Bennett', time: '11:30 AM', priority: 'Normal', status: 'Pending' },
-    { id: 'LR-1004', patient: 'Emily Davis', test: 'Thyroid Panel (T3, T4, TSH)', doctor: 'Dr. Brooks', time: '12:05 PM', priority: 'Urgent', status: 'Pending' }
-  ]);
-
-  const [labSamples, setLabSamples] = useState([
-    { barcode: 'S-99210', patient: 'Michael Brown', type: 'Blood', collectedAt: '09:30 AM', collector: 'Technician A', status: 'Processing' },
-    { barcode: 'S-99211', patient: 'Alice Wilson', type: 'Urine', collectedAt: '10:15 AM', collector: 'Technician B', status: 'Collected' }
-  ]);
-
+  const [labRequests, setLabRequests] = useState([]);
   const [labInventory, setLabInventory] = useState([
     { id: 1, name: 'Hematology Reagent', category: 'Reagents', stock: '12L', threshold: '20L', lastRestock: '12 May', status: 'Low' },
     { id: 2, name: 'Vacuum Tubes (Red)', category: 'Consumables', stock: '240 units', threshold: '1000 units', lastRestock: '05 May', status: 'Low' },
@@ -29,10 +20,23 @@ const LabDashboard = () => {
   ]);
 
   useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const res = await api.get('/labs');
+      setLabRequests(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
     if (window.lucide) {
       window.lucide.createIcons();
     }
-  }, [activeTab, labRequests, labSamples, labInventory, showCollectModal, activeSampleForEntry]);
+  }, [activeTab, labRequests, labInventory, showCollectModal, activeSampleForEntry, showProfileMenu]);
 
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
@@ -54,23 +58,18 @@ const LabDashboard = () => {
     setShowCollectModal(true);
   };
 
-  const confirmCollection = () => {
+  const confirmCollection = async () => {
     if (!selectedReqForCollection) return;
-    
-    const newSample = {
-      barcode: 'S-' + Math.floor(Math.random() * 90000 + 10000),
-      patient: selectedReqForCollection.patient,
-      type: 'Blood',
-      collectedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      collector: user.name || 'Technician',
-      status: 'Collected'
-    };
-
-    setLabSamples([...labSamples, newSample]);
-    setLabRequests(labRequests.filter(r => r.id !== selectedReqForCollection.id));
-    setShowCollectModal(false);
-    setSelectedReqForCollection(null);
-    alert("Sample collected and label printed!");
+    try {
+      await api.put(`/labs/${selectedReqForCollection._id}`, { status: 'In Progress' });
+      setShowCollectModal(false);
+      setSelectedReqForCollection(null);
+      fetchData();
+      alert("Sample collected and sent to processing!");
+    } catch (err) {
+      console.error(err);
+      alert('Failed to collect sample');
+    }
   };
 
   const processSample = (sample) => {
@@ -78,12 +77,18 @@ const LabDashboard = () => {
     setActiveTab('lab-entry');
   };
 
-  const finalizeResult = () => {
+  const finalizeResult = async () => {
     if (!activeSampleForEntry) return;
-    alert(`Lab results for ${activeSampleForEntry.barcode} verified and sent to consulting doctor!`);
-    setLabSamples(labSamples.filter(s => s.barcode !== activeSampleForEntry.barcode));
-    setActiveSampleForEntry(null);
-    setActiveTab('lab-dash');
+    try {
+      await api.put(`/labs/${activeSampleForEntry._id}`, { status: 'Completed', results: 'Completed Analysis' });
+      alert(`Lab results for ${activeSampleForEntry.patientId?.name} verified and sent to consulting doctor!`);
+      setActiveSampleForEntry(null);
+      fetchData();
+      setActiveTab('lab-dash');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to finalize result');
+    }
   };
 
   return (
@@ -93,263 +98,208 @@ const LabDashboard = () => {
           <i data-lucide="heart-pulse"></i><span>MediCore</span>
         </div>
         <nav>
-          <a href="#" className={`nav-link ${activeTab === 'lab-dash' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-dash'); }}>
-            <i data-lucide="layout-dashboard"></i> Dashboard
-          </a>
-          <a href="#" className={`nav-link ${activeTab === 'lab-requests' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-requests'); }}>
-            <i data-lucide="clipboard-list"></i> Test Requests
-          </a>
-          <a href="#" className={`nav-link ${activeTab === 'lab-samples' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-samples'); }}>
-            <i data-lucide="test-tube-2"></i> Sample Tracking
-          </a>
-          <a href="#" className={`nav-link ${activeTab === 'lab-entry' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-entry'); }}>
-            <i data-lucide="edit-3"></i> Result Entry
-          </a>
-          <a href="#" className={`nav-link ${activeTab === 'lab-inventory' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-inventory'); }}>
-            <i data-lucide="package"></i> Inventory
-          </a>
-          <a href="#" className={`nav-link ${activeTab === 'lab-archive' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-archive'); }}>
-            <i data-lucide="archive"></i> Report Archive
-          </a>
-          
-          <div style={{ marginTop: 'auto', padding: '20px 32px' }}>
-            <a href="#" className="nav-link" style={{ color: '#FCA5A5', padding: 0 }} onClick={(e) => { e.preventDefault(); handleLogout(); }}>
-              <i data-lucide="log-out"></i> Logout
-            </a>
-          </div>
+          <a href="#" className={`nav-link ${activeTab === 'lab-dash' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-dash'); }}><i data-lucide="layout-dashboard"></i> Dashboard</a>
+          <a href="#" className={`nav-link ${activeTab === 'lab-requests' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-requests'); }}><i data-lucide="clipboard-list"></i> Test Requests</a>
+          <a href="#" className={`nav-link ${activeTab === 'lab-samples' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-samples'); }}><i data-lucide="test-tube-2"></i> Sample Tracking</a>
+          <a href="#" className={`nav-link ${activeTab === 'lab-entry' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-entry'); }}><i data-lucide="edit-3"></i> Result Entry</a>
+          <a href="#" className={`nav-link ${activeTab === 'lab-inventory' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-inventory'); }}><i data-lucide="package"></i> Inventory</a>
+          <a href="#" className="nav-link" style={{ marginTop: 'auto', color: 'var(--danger)' }} onClick={(e) => { e.preventDefault(); handleLogout(); }}><i data-lucide="log-out"></i> Logout</a>
         </nav>
       </div>
 
       <div className="top-nav">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <div style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 20px', borderRadius: '99px', fontWeight: 800, fontSize: '14px', letterSpacing: '1px' }}>
-            {currentTime}
-          </div>
-          <div style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
-            <i data-lucide="map-pin" style={{ width: '14px', verticalAlign: 'middle', marginRight: '4px' }}></i> Floor 2, Pathology Lab
-          </div>
+        <div id="liveClock" className="desktop-only-flex" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
+          {currentTime}
         </div>
-        
-        <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-main)' }}>{user.name || 'Dr. Sarah Chen'}</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Chief Lab Pathologist</div>
+        <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto', cursor: 'pointer', position: 'relative' }} onClick={() => setShowProfileMenu(!showProfileMenu)}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }} className="desktop-only-flex">
+            <div style={{ fontWeight: 700, fontSize: '14px', color: '#1A1D23' }}>{user.name || 'Lab Staff'}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Lab ID: #LB-404</div>
           </div>
-          <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, #FFEDD5 0%, #FED7AA 100%)', color: '#9A3412', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-            <i data-lucide="flask-conical"></i>
+          <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+            {user.name ? user.name.substring(0, 2).toUpperCase() : 'LB'}
           </div>
+
+          {showProfileMenu && (
+            <div className="glass-card animate-in" style={{ position: 'absolute', top: '100%', right: 0, marginTop: '12px', width: '220px', zIndex: 1200, padding: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', border: '1px solid #E2E8F0' }} onClick={e => e.stopPropagation()}>
+              <div style={{ padding: '8px 12px', marginBottom: '8px', borderBottom: '1px solid #F1F5F9' }}>
+                <div style={{ fontWeight: 800, fontSize: '13px' }}>{user.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{user.email}</div>
+              </div>
+              <div className="dropdown-item" onClick={() => { setActiveTab('lab-dash'); setShowProfileMenu(false); }} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}><i data-lucide="user" style={{ width: '16px' }}></i> My Profile</div>
+              <div className="dropdown-item" onClick={() => { setActiveTab('lab-inventory'); setShowProfileMenu(false); }} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}><i data-lucide="settings" style={{ width: '16px' }}></i> Settings</div>
+              <div style={{ borderTop: '1px solid #F1F5F9', marginTop: '8px', paddingTop: '8px' }}>
+                <div className="dropdown-item" onClick={handleLogout} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, color: 'var(--danger)', cursor: 'pointer' }}><i data-lucide="log-out" style={{ width: '16px' }}></i> Logout</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="main-content">
-        {/* DASHBOARD TAB */}
         {activeTab === 'lab-dash' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
-              <div>
-                <h1 style={{ fontSize: '32px', fontWeight: 900, color: '#1E293B', letterSpacing: '-1px' }}>Lab Overview</h1>
-                <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Real-time diagnostics and workflow monitor</p>
+            <div className="dashboard-header" style={{ marginBottom: '32px' }}>
+              <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#1E293B' }}>Lab Overview</h1>
+              <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Real-time diagnostic workflow monitor</p>
+            </div>
+
+            <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+              <div className="kpi-card" style={{ padding: '20px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EEF2FF', color: '#4F46E5', marginBottom: '16px' }}><i data-lucide="inbox"></i></div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700 }}>New Requests</div>
+                <div style={{ fontSize: '24px', fontWeight: 900 }}>{labRequests.filter(r => r.status === 'Pending').length}</div>
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button className="btn btn-secondary"><i data-lucide="download"></i> Export Stats</button>
-                <button className="btn btn-primary"><i data-lucide="plus"></i> Manual Entry</button>
+              <div className="kpi-card" style={{ padding: '20px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ECFDF5', color: '#059669', marginBottom: '16px' }}><i data-lucide="test-tubes"></i></div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700 }}>Processing</div>
+                <div style={{ fontSize: '24px', fontWeight: 900 }}>{labRequests.filter(r => r.status === 'In Progress').length}</div>
+              </div>
+              <div className="kpi-card" style={{ padding: '20px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFFBEB', color: '#D97706', marginBottom: '16px' }}><i data-lucide="check-circle"></i></div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700 }}>Completed</div>
+                <div style={{ fontSize: '24px', fontWeight: 900 }}>{labRequests.filter(s => s.status === 'Completed').length}</div>
               </div>
             </div>
 
-            <div className="kpi-grid">
-              <div className="lab-stat-card" style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EEF2FF', color: '#4F46E5' }}><i data-lucide="inbox"></i></div>
-                <div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700 }}>New Requests</div>
-                  <div style={{ fontSize: '28px', fontWeight: 900 }}>{labRequests.length}</div>
-                </div>
-              </div>
-              <div className="lab-stat-card" style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ECFDF5', color: '#059669' }}><i data-lucide="test-tubes"></i></div>
-                <div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700 }}>Samples Collected</div>
-                  <div style={{ fontSize: '28px', fontWeight: 900 }}>{labSamples.length}</div>
-                </div>
-              </div>
-              <div className="lab-stat-card" style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFFBEB', color: '#D97706' }}><i data-lucide="refresh-cw"></i></div>
-                <div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700 }}>In Processing</div>
-                  <div style={{ fontSize: '28px', fontWeight: 900 }}>{labSamples.filter(s => s.status === 'Processing').length}</div>
-                </div>
-              </div>
-              <div className="lab-stat-card" style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FEF2F2', color: '#DC2626' }}><i data-lucide="alert-octagon"></i></div>
-                <div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700 }}>Critical Alerts</div>
-                  <div style={{ fontSize: '28px', fontWeight: 900 }}>02</div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+            <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
               <div className="glass-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h3 style={{ fontWeight: 800, fontSize: '18px' }}>Recent Test Requests</h3>
-                  <a href="#" style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '13px', textDecoration: 'none' }} onClick={(e) => { e.preventDefault(); setActiveTab('lab-requests'); }}>View All</a>
+                  <h3 style={{ fontWeight: 800, fontSize: '18px' }}>Test Queue</h3>
+                  <div style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }} onClick={() => setActiveTab('lab-requests')}>View All →</div>
                 </div>
-                <table className="elite-table">
-                  <thead><tr><th>Patient</th><th>Test Name</th><th>Priority</th><th>Action</th></tr></thead>
+                <div className="table-responsive">
+                  <table className="elite-table" style={{ margin: 0 }}>
+                    <thead><tr><th>Patient</th><th>Test</th><th>Action</th></tr></thead>
+                    <tbody>
+                      {labRequests.filter(r => r.status === 'Pending').slice(0,5).map(req => (
+                        <tr key={req._id}>
+                          <td><b>{req.patientId?.name}</b></td>
+                          <td><span style={{ fontWeight: 600 }}>{req.testName}</span></td>
+                          <td><button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => openCollectModal(req)}>Collect</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="glass-card">
+                <h3 style={{ fontWeight: 800, fontSize: '18px', marginBottom: '20px' }}>Inventory Alerts</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {labInventory.filter(item => item.status === 'Low').map(item => (
+                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#F8FAFC', borderRadius: '12px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: '13px' }}>{item.name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 700 }}>Low: {item.stock}</div>
+                      </div>
+                      <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '10px' }}>Order</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'lab-requests' && (
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
+            <h1 style={{ fontSize: '26px', fontWeight: 900, marginBottom: '24px' }}>Pending Requests</h1>
+            <div className="glass-card" style={{ padding: 0 }}>
+              <div className="table-responsive">
+                <table className="elite-table" style={{ margin: 0 }}>
+                  <thead><tr><th>ID</th><th>Patient</th><th>Test</th><th>Ordered By</th><th>Action</th></tr></thead>
                   <tbody>
-                    {labRequests.slice(0,3).map(req => (
-                      <tr key={req.id}>
-                        <td><b>{req.patient}</b></td>
-                        <td><span style={{fontWeight:600}}>{req.test}</span></td>
-                        <td><span className={`status-badge ${req.priority === 'High' || req.priority === 'Urgent' ? 'critical' : 'pending'}`}>{req.priority}</span></td>
-                        <td><button className="btn btn-primary" style={{padding:'6px 12px', fontSize:'11px'}} onClick={() => openCollectModal(req)}>Collect Sample</button></td>
+                    {labRequests.filter(r => r.status === 'Pending').map(req => (
+                      <tr key={req._id}>
+                        <td><b style={{ color: 'var(--primary)' }}>#{req._id.substring(18).toUpperCase()}</b></td>
+                        <td><b>{req.patientId?.name}</b></td>
+                        <td>{req.testName}</td>
+                        <td>{req.doctorId?.name}</td>
+                        <td><button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => openCollectModal(req)}>Collect</button></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
 
-              <div className="glass-card">
-                <h3 style={{ fontWeight: 800, fontSize: '18px', marginBottom: '20px' }}>Inventory Alerts</h3>
-                <div>
-                  {labInventory.filter(item => item.status === 'Low').map(item => (
-                    <div key={item.id} className="inventory-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: '#F8FAFC', borderRadius: '12px', marginBottom: '12px' }}>
-                      <div>
-                        <div style={{ fontWeight: 700 }}>{item.name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 700 }}>Low Stock: {item.stock}</div>
-                      </div>
-                      <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FCA5A5' }}>Order</button>
-                    </div>
-                  ))}
-                </div>
+        {activeTab === 'lab-samples' && (
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
+            <h1 style={{ fontSize: '26px', fontWeight: 900, marginBottom: '24px' }}>Sample Tracking</h1>
+            <div className="glass-card" style={{ padding: 0 }}>
+              <div className="table-responsive">
+                <table className="elite-table" style={{ margin: 0 }}>
+                  <thead><tr><th>Barcode</th><th>Patient</th><th>Test</th><th>Status</th><th>Action</th></tr></thead>
+                  <tbody>
+                    {labRequests.filter(r => r.status === 'In Progress').map(s => (
+                      <tr key={s._id}>
+                        <td style={{ fontFamily: 'monospace', fontWeight: 700 }}>#{s._id.substring(18).toUpperCase()}</td>
+                        <td><b>{s.patientId?.name}</b></td>
+                        <td>{s.testName}</td>
+                        <td><span className="status-badge pending">{s.status}</span></td>
+                        <td><button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => processSample(s)}>Process</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         )}
 
-        {/* TEST REQUESTS TAB */}
-        {activeTab === 'lab-requests' && (
-          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <h1 style={{ fontSize: '32px', fontWeight: 900, marginBottom: '24px' }}>Pending Test Requests</h1>
-            <div className="table-wrapper">
-              <table className="elite-table">
-                <thead><tr><th>Req ID</th><th>Patient</th><th>Test Required</th><th>Ordered By</th><th>Time</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody>
-                  {labRequests.map(req => (
-                    <tr key={req.id}>
-                      <td><b style={{ color: 'var(--primary)' }}>{req.id}</b></td>
-                      <td><b>{req.patient}</b></td>
-                      <td><span style={{ fontWeight: 600 }}>{req.test}</span></td>
-                      <td>{req.doctor}</td>
-                      <td>{req.time}</td>
-                      <td><span className="status-badge pending">{req.status}</span></td>
-                      <td><button className="btn btn-primary" style={{ padding: '6px 16px', fontSize: '12px' }} onClick={() => openCollectModal(req)}>Collect</button></td>
-                    </tr>
-                  ))}
-                  {labRequests.length === 0 && (
-                    <tr><td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>No pending requests</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* SAMPLE TRACKING TAB */}
-        {activeTab === 'lab-samples' && (
-          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <h1 style={{ fontSize: '32px', fontWeight: 900, marginBottom: '24px' }}>Sample Tracking</h1>
-            <div className="table-wrapper">
-              <table className="elite-table">
-                <thead><tr><th>Barcode</th><th>Patient</th><th>Sample Type</th><th>Collected At</th><th>Collector</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody>
-                  {labSamples.map(s => (
-                    <tr key={s.barcode}>
-                      <td><span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text-muted)' }}>{s.barcode}</span></td>
-                      <td><b>{s.patient}</b></td>
-                      <td>{s.type}</td>
-                      <td>{s.collectedAt}</td>
-                      <td>{s.collector}</td>
-                      <td><span className={`status-badge ${s.status === 'Processing' ? 'pending' : 'available'}`}>{s.status}</span></td>
-                      <td><button className="btn btn-secondary" style={{ padding: '6px 16px', fontSize: '12px' }} onClick={() => processSample(s)}>Process</button></td>
-                    </tr>
-                  ))}
-                  {labSamples.length === 0 && (
-                    <tr><td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>No samples tracked</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* RESULT ENTRY TAB */}
         {activeTab === 'lab-entry' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <h1 style={{ fontSize: '32px', fontWeight: 900, marginBottom: '24px' }}>Result Processing</h1>
-            
+            <h1 style={{ fontSize: '26px', fontWeight: 900, marginBottom: '24px' }}>Result Entry</h1>
             {activeSampleForEntry ? (
-              <div className="glass-card" style={{ padding: '32px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
+              <div className="glass-card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }} className="mobile-stack">
                   <div>
-                    <h2 style={{ fontSize: '24px', fontWeight: 900 }}>Result Entry: CBC / Standard Profile</h2>
-                    <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Sample Barcode: {activeSampleForEntry.barcode} | Patient: {activeSampleForEntry.patient}</p>
+                    <h2 style={{ fontSize: '20px', fontWeight: 800 }}>{activeSampleForEntry.testName}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Patient: <b>{activeSampleForEntry.patientId?.name}</b></p>
                   </div>
-                  <button className="btn btn-secondary"><i data-lucide="printer"></i> Print Worksheet</button>
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px', marginBottom: '20px', padding: '0 12px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>PARAMETER</div>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>RESULT</div>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>REF. RANGE</div>
+                  <button className="btn btn-secondary" onClick={() => setActiveSampleForEntry(null)}>Back to List</button>
                 </div>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', background: 'white', border: '1px solid var(--border)', padding: '16px', borderRadius: '12px', alignItems: 'center' }}>
-                    <div style={{ flex: 2, fontWeight: 700 }}>Hemoglobin (Hb)</div>
-                    <div style={{ flex: 1 }}><input type="text" className="form-control" style={{ width: '80px', textAlign: 'center' }} placeholder="14.2" /></div>
-                    <div style={{ flex: 1, fontSize: '12px', color: 'var(--text-muted)' }}>13.0 - 17.0 g/dL</div>
-                  </div>
-                  <div style={{ display: 'flex', background: 'white', border: '1px solid var(--border)', padding: '16px', borderRadius: '12px', alignItems: 'center' }}>
-                    <div style={{ flex: 2, fontWeight: 700 }}>Total WBC Count</div>
-                    <div style={{ flex: 1 }}><input type="text" className="form-control" style={{ width: '80px', textAlign: 'center' }} placeholder="7500" /></div>
-                    <div style={{ flex: 1, fontSize: '12px', color: 'var(--text-muted)' }}>4000 - 11000 /cumm</div>
-                  </div>
-                  <div style={{ display: 'flex', background: 'white', border: '1px solid var(--border)', padding: '16px', borderRadius: '12px', alignItems: 'center' }}>
-                    <div style={{ flex: 2, fontWeight: 700 }}>Platelet Count</div>
-                    <div style={{ flex: 1 }}><input type="text" className="form-control" style={{ width: '80px', textAlign: 'center' }} placeholder="2.5" /></div>
-                    <div style={{ flex: 1, fontSize: '12px', color: 'var(--text-muted)' }}>1.5 - 4.5 Lakhs</div>
-                  </div>
+                  {['Hemoglobin', 'WBC Count', 'Platelets'].map(param => (
+                    <div key={param} style={{ display: 'flex', alignItems: 'center', gap: '16px', background: '#F8FAFC', padding: '16px', borderRadius: '12px' }} className="mobile-stack">
+                      <div style={{ flex: 1, fontWeight: 700 }}>{param}</div>
+                      <input type="text" className="form-control" style={{ width: '120px' }} placeholder="Enter value" />
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', width: '100px' }}>Normal Range</div>
+                    </div>
+                  ))}
                 </div>
                 
-                <div className="form-group" style={{ marginTop: '24px' }}>
-                  <label>Pathologist Remarks</label>
-                  <textarea className="form-control" placeholder="Enter findings..."></textarea>
+                <div style={{ marginTop: '24px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px', display: 'block' }}>Clinical Remarks</label>
+                  <textarea className="form-control" style={{ minHeight: '80px' }} placeholder="Enter pathologist remarks..."></textarea>
                 </div>
                 
-                <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }} className="mobile-stack">
                   <button className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Save Draft</button>
-                  <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={finalizeResult}>Verify & Authorize</button>
+                  <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={finalizeResult}>Finalize Result</button>
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+              <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
                 <div className="glass-card">
-                  <h3 style={{ fontWeight: 800, marginBottom: '16px' }}>Active Processing</h3>
-                  {labSamples.map(s => (
-                    <div key={s.barcode} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderBottom: '1px solid var(--border)' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '14px' }}>{s.patient}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{s.barcode}</div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '16px' }}>Awaiting Entry</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {labRequests.filter(r => r.status === 'In Progress').map(s => (
+                      <div key={s._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#F8FAFC', borderRadius: '10px' }}>
+                        <div><div style={{ fontWeight: 700, fontSize: '13px' }}>{s.patientId?.name}</div><div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{s.testName}</div></div>
+                        <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px' }} onClick={() => processSample(s)}>Enter</button>
                       </div>
-                      <button className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '11px' }} onClick={() => processSample(s)}>Enter</button>
-                    </div>
-                  ))}
-                  {labSamples.length === 0 && <div style={{ color: 'var(--text-muted)' }}>No active processing tasks</div>}
+                    ))}
+                  </div>
                 </div>
-                <div className="glass-card">
-                  <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-                    <i data-lucide="microscope" style={{ width: '48px', height: '48px', marginBottom: '16px', opacity: 0.3 }}></i>
-                    <p style={{ fontWeight: 600 }}>Select a sample from the left to start result entry</p>
+                <div className="glass-card desktop-only-flex" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <i data-lucide="flask-conical" style={{ width: '48px', height: '48px', marginBottom: '16px', opacity: 0.2 }}></i>
+                    <p>Select a sample to process results</p>
                   </div>
                 </div>
               </div>
@@ -357,93 +307,52 @@ const LabDashboard = () => {
           </div>
         )}
 
-        {/* INVENTORY TAB */}
         {activeTab === 'lab-inventory' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <h1 style={{ fontSize: '32px', fontWeight: 900, marginBottom: '24px' }}>Lab Inventory Management</h1>
-            <div className="table-wrapper">
-              <table className="elite-table">
-                <thead><tr><th>Item Name</th><th>Category</th><th>Current Stock</th><th>Threshold</th><th>Last Restock</th><th>Status</th></tr></thead>
-                <tbody>
-                  {labInventory.map(item => (
-                    <tr key={item.id}>
-                      <td><b>{item.name}</b></td>
-                      <td>{item.category}</td>
-                      <td style={{ fontWeight: 700 }}>{item.stock}</td>
-                      <td>{item.threshold}</td>
-                      <td>{item.lastRestock}</td>
-                      <td><span className={`status-badge ${item.status === 'Low' ? 'critical' : 'available'}`}>{item.status}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ARCHIVE TAB */}
-        {activeTab === 'lab-archive' && (
-          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <h1 style={{ fontSize: '32px', fontWeight: 900, marginBottom: '24px' }}>Completed Reports Archive</h1>
-            <div className="table-wrapper">
-              <table className="elite-table">
-                <thead><tr><th>Report ID</th><th>Patient</th><th>Test Name</th><th>Completed Date</th><th>Verified By</th><th>Outcome</th><th>Actions</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td><b style={{ color: 'var(--primary)' }}>RPT-2022</b></td>
-                    <td><b>Reyan Verol</b></td>
-                    <td>Complete Blood Count</td>
-                    <td>14 May 2024</td>
-                    <td>Dr. Sarah Chen</td>
-                    <td><span className="status-badge available">Normal</span></td>
-                    <td><button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }}><i data-lucide="download" style={{ width: '14px' }}></i></button></td>
-                  </tr>
-                </tbody>
-              </table>
+            <h1 style={{ fontSize: '26px', fontWeight: 900, marginBottom: '24px' }}>Lab Inventory</h1>
+            <div className="glass-card" style={{ padding: 0 }}>
+              <div className="table-responsive">
+                <table className="elite-table" style={{ margin: 0 }}>
+                  <thead><tr><th>Item</th><th>Category</th><th>Stock</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {labInventory.map(item => (
+                      <tr key={item.id}>
+                        <td><b>{item.name}</b></td>
+                        <td>{item.category}</td>
+                        <td style={{ fontWeight: 700 }}>{item.stock}</td>
+                        <td><span className={`status-badge ${item.status === 'Low' ? 'critical' : 'available'}`}>{item.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* SAMPLE COLLECTION MODAL */}
+      <div className="mobile-bottom-nav">
+        <div className={`mob-nav-item ${activeTab === 'lab-dash' ? 'active' : ''}`} onClick={() => setActiveTab('lab-dash')}><i data-lucide="layout-dashboard"></i><span>Home</span></div>
+        <div className={`mob-nav-item ${activeTab === 'lab-requests' ? 'active' : ''}`} onClick={() => setActiveTab('lab-requests')}><i data-lucide="clipboard-list"></i><span>Reqs</span></div>
+        <div className={`mob-nav-item ${activeTab === 'lab-samples' ? 'active' : ''}`} onClick={() => setActiveTab('lab-samples')}><i data-lucide="test-tube-2"></i><span>Samples</span></div>
+        <div className={`mob-nav-item ${activeTab === 'lab-entry' ? 'active' : ''}`} onClick={() => setActiveTab('lab-entry')}><i data-lucide="edit-3"></i><span>Entry</span></div>
+      </div>
+
       {showCollectModal && selectedReqForCollection && (
-        <div className="modal-overlay" style={{ display: 'flex' }}>
-          <div className="modal-box" style={{ width: '500px', padding: '32px' }}>
+        <div className="modal-overlay" style={{ display: 'flex', zIndex: 1100 }}>
+          <div className="modal-box" style={{ width: '95%', maxWidth: '500px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 900 }}>Sample Collection</h2>
-              <button className="btn" style={{ padding: '8px' }} onClick={() => setShowCollectModal(false)}><i data-lucide="x"></i></button>
+              <h2 style={{ fontSize: '22px', fontWeight: 900 }}>Collect Sample</h2>
+              <button className="btn" onClick={() => setShowCollectModal(false)}><i data-lucide="x"></i></button>
             </div>
-            <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '16px', marginBottom: '24px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>PATIENT</div>
-              <div style={{ fontSize: '18px', fontWeight: 800 }}>{selectedReqForCollection.patient}</div>
-              <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>TEST ORDERED</div>
-              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--primary)' }}>{selectedReqForCollection.test}</div>
+            <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '12px', marginBottom: '24px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Patient</div>
+              <div style={{ fontSize: '18px', fontWeight: 900 }}>{selectedReqForCollection.patientId?.name}</div>
+              <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Test Required</div>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)' }}>{selectedReqForCollection.testName}</div>
             </div>
-            <div className="form-group">
-              <label>Sample Type</label>
-              <select className="form-control">
-                <option>Venous Blood</option>
-                <option>Capillary Blood</option>
-                <option>Urine (Mid-stream)</option>
-                <option>Swab</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Container Type</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="glass-card" style={{ padding: '12px', borderColor: 'var(--primary)', background: '#F0F4FF', textAlign: 'center', cursor: 'pointer' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#EF4444', margin: '0 auto 8px' }}></div>
-                  <span style={{ fontWeight: 700, fontSize: '12px' }}>EDTA (Purple)</span>
-                </div>
-                <div className="glass-card" style={{ padding: '12px', textAlign: 'center', cursor: 'pointer' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#FACC15', margin: '0 auto 8px' }}></div>
-                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Serum (Yellow)</span>
-                </div>
-              </div>
-            </div>
-            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', height: '54px', fontSize: '16px' }} onClick={confirmCollection}>
-              Confirm Collection & Print Label
-            </button>
+            <div className="form-group"><label>Sample Type</label><select className="form-control"><option>Venous Blood</option><option>Urine</option><option>Swab</option></select></div>
+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', height: '54px', fontSize: '16px', marginTop: '20px' }} onClick={confirmCollection}>Confirm & Print Label</button>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
@@ -8,6 +8,23 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    
+    if (token && user && user.role) {
+      switch (user.role) {
+        case 'admin': navigate('/admin'); break;
+        case 'doctor': navigate('/doctor'); break;
+        case 'receptionist': navigate('/receptionist'); break;
+        case 'patient': navigate('/patient'); break;
+        case 'lab': navigate('/lab'); break;
+        case 'pharmacy': navigate('/pharmacy'); break;
+        default: break;
+      }
+    }
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
