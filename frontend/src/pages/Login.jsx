@@ -75,7 +75,7 @@ const Login = () => {
               className="form-control" 
               placeholder="Enter Staff ID"
               value={staffId}
-              onChange={(e) => setStaffId(e.target.value)}
+              onChange={(e) => setStaffId(e.target.value.toLowerCase())}
               required
             />
           </div>

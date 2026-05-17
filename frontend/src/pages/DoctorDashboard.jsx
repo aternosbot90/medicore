@@ -58,6 +58,28 @@ const DoctorDashboard = () => {
   const searchContainerRef = useRef(null);
   const [pastPrescriptions, setPastPrescriptions] = useState([]);
 
+  // Mock Pharmacy Inventory for real-time stock alerts
+  const pharmacyInventoryDb = [
+    { name: "Paracetamol 650mg", stock: 250 },
+    { name: "Azithromycin 500mg", stock: 0 },
+    { name: "Cetirizine 10mg", stock: 12 },
+    { name: "Pantoprazole 40mg", stock: 145 },
+    { name: "Amoxicillin 250mg", stock: 50 },
+    { name: "Ibuprofen 400mg", stock: 0 },
+    { name: "Amlodipine 5mg", stock: 100 },
+    { name: "Telmisartan 40mg", stock: 0 },
+    { name: "Cough Syrup", stock: 10 }
+  ];
+
+  const getStockStatus = (medName) => {
+    if (!medName || medName.length < 3) return null;
+    const match = pharmacyInventoryDb.find(item => item.name.toLowerCase().includes(medName.toLowerCase()) || medName.toLowerCase().includes(item.name.toLowerCase()));
+    if (!match) return null;
+    if (match.stock === 0) return 'out';
+    if (match.stock < 20) return 'low';
+    return 'in';
+  };
+
   // Seeding clinical histories for mock patients
   const mockHistoryDb = {
     'p1': [
@@ -528,6 +550,7 @@ const DoctorDashboard = () => {
       const rxRes = await api.post('/prescriptions', {
         patientId: selectedPatient._id,
         doctorId: user.id || 'doc123',
+        status: 'Pending Pharmacy Dispatch',
         items: medicines.map(m => ({ 
           medicine: m.name, 
           dosage: m.dose, 
@@ -717,7 +740,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
     } catch (e) {
       console.warn("Lucide icons failed to render safely", e);
     }
-  }, [activeTab, selectedPatient, showDropdown, showProfileMenu, uploadedFiles, previewFile, aiChat, isUploading]);
+  }, [activeTab, selectedPatient, showDropdown, showProfileMenu, uploadedFiles, previewFile, aiChat, isUploading, medicines]);
 
   return (
     <ErrorBoundary>
@@ -751,6 +774,12 @@ I have scanned the medical reference databases, but couldn't find a direct match
             margin-left: 0 !important;
             justify-self: end !important;
             justify-content: flex-end !important;
+            flex-shrink: 0 !important;
+            overflow: visible !important;
+            padding-right: 4px !important;
+          }
+          .user-profile > div[style] {
+            flex-shrink: 0 !important;
           }
           .user-profile .desktop-only-flex {
             display: flex !important;
@@ -761,9 +790,18 @@ I have scanned the medical reference databases, but couldn't find a direct match
           .user-profile .desktop-only-flex > div:first-child {
             font-size: 12px !important;
             font-weight: 800 !important;
+            white-space: nowrap !important;
           }
           .user-profile .desktop-only-flex > div:last-child {
             font-size: 9px !important;
+            white-space: nowrap !important;
+          }
+          /* Fix dropdown Lucide SVG white-space: cap all SVGs inside dropdown to 15px */
+          .glass-card svg, .dropdown-item svg {
+            width: 15px !important;
+            height: 15px !important;
+            flex-shrink: 0 !important;
+            display: inline-block !important;
           }
           .search-bar-container {
             grid-row: 2 !important;
@@ -783,6 +821,15 @@ I have scanned the medical reference databases, but couldn't find a direct match
             gap: 16px !important;
             padding: 12px !important;
           }
+        }
+        /* === GLOBAL: Fix dropdown icon SVG sizes at ALL screen sizes === */
+        .user-profile .glass-card svg,
+        .user-profile .dropdown-item svg {
+          width: 14px !important;
+          height: 14px !important;
+          flex-shrink: 0 !important;
+          display: inline-block !important;
+          vertical-align: middle !important;
         }
         :root {
           --cu-primary: #0F6CBD;
@@ -926,10 +973,10 @@ I have scanned the medical reference databases, but couldn't find a direct match
       </div>
 
       {/* Top Navbar Header */}
-      <div className="top-nav" style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '12px 24px', position: 'relative', zIndex: 1100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '20px', fontWeight: 950, color: 'var(--cu-primary)', letterSpacing: '-0.5px' }}>MediCore</span>
-          <span style={{ fontSize: '11px', background: '#EFF6FF', color: 'var(--cu-primary)', padding: '4px 10px', borderRadius: '99px', fontWeight: 700 }} className="desktop-only-inline">
+      <div className="top-nav" style={{ background: 'white', borderBottom: '1px solid #E2E8F0', position: 'relative', zIndex: 1100, overflow: 'visible' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          <span style={{ fontSize: '17px', fontWeight: 950, color: 'var(--cu-primary)', letterSpacing: '-0.5px' }}>MediCore</span>
+          <span style={{ fontSize: '10px', background: '#EFF6FF', color: 'var(--cu-primary)', padding: '3px 8px', borderRadius: '99px', fontWeight: 700 }} className="desktop-only-inline">
             Prescription Maker
           </span>
         </div>
@@ -937,7 +984,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
         {/* Global Patient Search (Optimized & Absolute Overlaid Dropdown) */}
         <div 
           ref={searchContainerRef}
-          style={{ position: 'relative', width: '100%', maxWidth: '400px', marginLeft: '32px', zIndex: 9999 }} 
+          style={{ position: 'relative', flex: '1 1 0', minWidth: 0, maxWidth: '400px', margin: '0 16px', zIndex: 9999 }} 
           className="search-bar-container"
         >
           <i data-lucide="search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', width: '16px' }}></i>
@@ -1010,25 +1057,39 @@ I have scanned the medical reference databases, but couldn't find a direct match
         </div>
 
         {/* Doctor Identity Header */}
-        <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto', cursor: 'pointer', position: 'relative', zIndex: 99999 }} onClick={() => setShowProfileMenu(!showProfileMenu)}>
+        <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', cursor: 'pointer', position: 'relative', zIndex: 99999, flexShrink: 0 }} onClick={() => setShowProfileMenu(!showProfileMenu)}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }} className="desktop-only-flex">
-            <div style={{ fontWeight: 700, fontSize: '14px', color: '#1A1D23' }}>{user.name || 'Dr. Sarah Jenkins'}</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{user.specialty || 'Cardiology Consultant'}</div>
+            <div style={{ fontWeight: 700, fontSize: '13px', color: '#1A1D23', whiteSpace: 'nowrap' }}>{user.name || 'Dr. Sarah Jenkins'}</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{user.specialty || 'Cardiology Consultant'}</div>
           </div>
-          <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-            {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'DR'}
+          {/* Avatar: flex-shrink:0 prevents clipping on narrow screens */}
+          <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: '#EFF6FF', color: 'var(--cu-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '13px', flexShrink: 0, border: '1.5px solid #BFDBFE' }}>
+                  { user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'DR'}
           </div>
 
           {showProfileMenu && (
-            <div className="glass-card animate-in" style={{ position: 'absolute', top: '100%', right: 0, marginTop: '12px', width: '220px', zIndex: 1200, padding: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', border: '1px solid #E2E8F0', background: 'rgba(255, 255, 255, 0.98)', backdropFilter: 'blur(10px)' }} onClick={e => e.stopPropagation()}>
-              <div style={{ padding: '8px 12px', marginBottom: '8px', borderBottom: '1px solid #F1F5F9' }}>
-                <div style={{ fontWeight: 800, fontSize: '13px', color: '#1E293B' }}>{user.name || 'Dr. Sarah Jenkins'}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{user.specialty || 'General Physician'}</div>
+            <div className="glass-card animate-in" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: '220px', zIndex: 1200, padding: '8px', boxShadow: '0 16px 40px rgba(0,0,0,0.12)', border: '1px solid #E2E8F0', background: 'white', borderRadius: '14px' }} onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px 12px', borderBottom: '1px solid #F1F5F9', marginBottom: '4px' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: '#EFF6FF', color: 'var(--cu-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '13px', flexShrink: 0, border: '1.5px solid #BFDBFE' }}>
+                  {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'DR'}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '13px', color: '#1E293B', lineHeight: 1.3 }}>{user.name || 'Dr. Sarah Jenkins'}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>{user.specialty || 'General Physician'}</div>
+                </div>
               </div>
-              <div className="dropdown-item" onClick={() => { setActiveTab('dash'); setShowProfileMenu(false); }} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}><i data-lucide="user" style={{ width: '16px' }}></i> Clinical Overview</div>
-              <div className="dropdown-item" onClick={() => { setActiveTab('prescriptions'); setShowProfileMenu(false); }} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}><i data-lucide="file-text"></i> Prescription Maker</div>
-              <div style={{ borderTop: '1px solid #F1F5F9', marginTop: '8px', paddingTop: '8px' }}>
-                <div className="dropdown-item" onClick={handleLogout} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, color: 'var(--cu-danger)', cursor: 'pointer' }}><i data-lucide="log-out" style={{ width: '16px' }}></i> Logout</div>
+              {/* Items — icons in fixed 20px spans so text always aligns */}
+              <div className="dropdown-item" onClick={() => { setActiveTab('dash'); setShowProfileMenu(false); }} style={{ padding: '9px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', color: '#334155' }}>
+                <span style={{ width: '20px', display: 'inline-flex', justifyContent: 'center', flexShrink: 0 }}><i data-lucide="layout-dashboard" style={{ width: '15px', height: '15px' }}></i></span> Clinical Overview
+              </div>
+              <div className="dropdown-item" onClick={() => { setActiveTab('prescriptions'); setShowProfileMenu(false); }} style={{ padding: '9px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', color: '#334155' }}>
+                <span style={{ width: '20px', display: 'inline-flex', justifyContent: 'center', flexShrink: 0 }}><i data-lucide="file-text" style={{ width: '15px', height: '15px' }}></i></span> Prescription Maker
+              </div>
+              <div style={{ borderTop: '1px solid #F1F5F9', marginTop: '4px', paddingTop: '4px' }}>
+                <div className="dropdown-item" onClick={handleLogout} style={{ padding: '9px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: 'var(--cu-danger)', cursor: 'pointer' }}>
+                  <span style={{ width: '20px', display: 'inline-flex', justifyContent: 'center', flexShrink: 0 }}><i data-lucide="log-out" style={{ width: '15px', height: '15px' }}></i></span> Logout
+                </div>
               </div>
             </div>
           )}
@@ -1060,42 +1121,61 @@ I have scanned the medical reference databases, but couldn't find a direct match
               </div>
             </div>
 
-            <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '32px' }}>
+            <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '24px' }}>
+              {/* Upcoming Patients */}
               <div>
-                <div className="glass-card">
-                  <div className="flex-between" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Upcoming Patients</h3>
+                <div className="glass-card" style={{ padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Upcoming Patients</h3>
                     <div style={{ color: 'var(--cu-primary)', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }} onClick={() => setActiveTab('appointments')}>View All →</div>
                   </div>
-                  <div className="table-responsive">
-                    <table className="elite-table" style={{ margin: 0 }}>
-                      <thead><tr><th>Time</th><th>Patient</th><th>Reason</th><th>Action</th></tr></thead>
-                      <tbody>
-                        {appointments.slice(0,3).map(app => (
-                          <tr key={app._id}>
-                            <td><b style={{ color: 'var(--cu-primary)' }}>{app.time}</b></td>
-                            <td><div style={{ fontWeight: 700 }}>{app.patientId?.name}</div></td>
-                            <td><span style={{ fontSize: '12px', fontWeight: 600 }}>{app.reason}</span></td>
-                            <td><button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => startConsultation(app)}>Consult</button></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  {/* Mobile-friendly card list instead of table */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {appointments.slice(0, 3).map(app => (
+                      <div key={app._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--cu-primary)', minWidth: '70px' }}>{app.time}</div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '13px', color: '#1E293B' }}>{app.patientId?.name}</div>
+                            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>{app.reason}</div>
+                          </div>
+                        </div>
+                        <button className="btn btn-primary" style={{ padding: '6px 14px', fontSize: '11px', whiteSpace: 'nowrap' }} onClick={() => startConsultation(app)}>Consult</button>
+                      </div>
+                    ))}
+                    {appointments.length === 0 && (
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', padding: '20px 0' }}>No upcoming appointments</div>
+                    )}
                   </div>
                 </div>
               </div>
+
+              {/* Quick Actions */}
               <div>
-                <div className="glass-card">
-                  <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '16px' }}>Quick Actions</h3>
-                  <div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{ padding: '12px', background: '#F0F4FF', borderRadius: '12px', textAlign: 'center', cursor: 'pointer' }} onClick={() => setActiveTab('prescriptions')}><i data-lucide="plus-circle" style={{ color: 'var(--cu-primary)', marginBottom: '6px', width: '18px' }}></i><div style={{ fontSize: '11px', fontWeight: 800 }}>New Prescription</div></div>
-                    <div style={{ padding: '12px', background: '#F0FFF4', borderRadius: '12px', textAlign: 'center', cursor: 'pointer' }}><i data-lucide="file-text" style={{ color: 'var(--cu-success)', marginBottom: '6px', width: '18px' }}></i><div style={{ fontSize: '11px', fontWeight: 800 }}>Medical Certificate</div></div>
-                    <div style={{ padding: '12px', background: '#FFFBEB', borderRadius: '12px', textAlign: 'center', cursor: 'pointer' }} onClick={() => setActiveTab('prescriptions')}><i data-lucide="clipboard-list" style={{ color: 'var(--cu-warning)', marginBottom: '6px', width: '18px' }}></i><div style={{ fontSize: '11px', fontWeight: 800 }}>Order Lab</div></div>
-                    <div style={{ padding: '12px', background: '#FFF5F5', borderRadius: '12px', textAlign: 'center', cursor: 'pointer' }}><i data-lucide="alert-triangle" style={{ color: 'var(--cu-danger)', marginBottom: '6px', width: '18px' }}></i><div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--cu-danger)' }}>Emergency</div></div>
+                <div className="glass-card" style={{ padding: '20px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '16px', margin: '0 0 16px 0' }}>Quick Actions</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+                    <div style={{ padding: '16px 12px', background: '#F0F4FF', borderRadius: '12px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }} onClick={() => setActiveTab('prescriptions')}>
+                      <i data-lucide="plus-circle" style={{ color: 'var(--cu-primary)', width: '22px', height: '22px' }}></i>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#1E293B', lineHeight: '1.3' }}>New Prescription</div>
+                    </div>
+                    <div style={{ padding: '16px 12px', background: '#F0FFF4', borderRadius: '12px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <i data-lucide="file-text" style={{ color: 'var(--cu-success)', width: '22px', height: '22px' }}></i>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#1E293B', lineHeight: '1.3' }}>Medical Certificate</div>
+                    </div>
+                    <div style={{ padding: '16px 12px', background: '#FFFBEB', borderRadius: '12px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }} onClick={() => setActiveTab('prescriptions')}>
+                      <i data-lucide="clipboard-list" style={{ color: 'var(--cu-warning)', width: '22px', height: '22px' }}></i>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#1E293B', lineHeight: '1.3' }}>Order Lab</div>
+                    </div>
+                    <div style={{ padding: '16px 12px', background: '#FFF5F5', borderRadius: '12px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <i data-lucide="alert-triangle" style={{ color: 'var(--cu-danger)', width: '22px', height: '22px' }}></i>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--cu-danger)', lineHeight: '1.3' }}>Emergency</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+
           </div>
         )}
 
@@ -1451,7 +1531,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
                     <tbody>
                       {medicines.map((med) => (
                         <tr key={med.id}>
-                          <td style={{ padding: '8px 4px' }}>
+                          <td style={{ padding: '8px 4px', position: 'relative' }}>
                             <input 
                               type="text" 
                               value={med.name} 
@@ -1460,10 +1540,20 @@ I have scanned the medical reference databases, but couldn't find a direct match
                               style={{ 
                                 ...rxInputStyle, 
                                 fontWeight: 700, 
-                                borderColor: hasAllergyWarning(med.name) ? 'var(--cu-danger)' : '#E2E8F0',
-                                boxShadow: hasAllergyWarning(med.name) ? '0 0 0 3px rgba(220, 38, 38, 0.15)' : 'none'
+                                borderColor: hasAllergyWarning(med.name) || getStockStatus(med.name) === 'out' ? 'var(--cu-danger)' : '#E2E8F0',
+                                boxShadow: hasAllergyWarning(med.name) || getStockStatus(med.name) === 'out' ? '0 0 0 3px rgba(220, 38, 38, 0.15)' : 'none'
                               }}
                             />
+                            {getStockStatus(med.name) === 'out' && (
+                              <div style={{ position: 'absolute', top: '100%', left: '4px', background: '#FEF2F2', color: '#DC2626', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FCA5A5', fontWeight: 800, marginTop: '2px', zIndex: 10, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <i data-lucide="alert-circle" style={{ width: '10px' }}></i> Out of Stock at Pharmacy
+                              </div>
+                            )}
+                            {getStockStatus(med.name) === 'low' && (
+                              <div style={{ position: 'absolute', top: '100%', left: '4px', background: '#FFFBEB', color: '#D97706', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FCD34D', fontWeight: 800, marginTop: '2px', zIndex: 10 }}>
+                                Low Stock
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '8px 4px', width: '100px' }}>
                             <input 
@@ -1553,9 +1643,13 @@ I have scanned the medical reference databases, but couldn't find a direct match
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
                   {labs.map((lab, idx) => (
-                    <span key={idx} className="cu-badge success" style={{ fontWeight: 800, gap: '6px' }}>
+                    <span key={idx} className="cu-badge success" style={{ fontWeight: 800, gap: '6px', display: 'inline-flex', alignItems: 'center' }}>
                       {lab}
-                      <i data-lucide="x" style={{ width: '12px', cursor: 'pointer' }} onClick={() => setLabs(labs.filter((_, i) => i !== idx))}></i>
+                      <span
+                        onClick={() => setLabs(labs.filter((_, i) => i !== idx))}
+                        style={{ cursor: 'pointer', marginLeft: '4px', fontSize: '14px', lineHeight: 1, fontWeight: 900, opacity: 0.7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Remove"
+                      >×</span>
                     </span>
                   ))}
                 </div>

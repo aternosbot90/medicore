@@ -58,8 +58,8 @@ body {
 
 /* PREMIUM LAYOUT */
 .top-nav { 
-    height: 80px; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border); margin-left: 220px; padding: 0 16px;
+    height: 52px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border); margin-left: 220px; padding: 0 20px;
     display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 90;
 }
 .main-content { 
@@ -973,7 +973,7 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
         left: 0 !important;
         width: 100% !important;
         padding: 0 16px !important;
-        height: 70px !important;
+        height: 52px !important;
         z-index: 1000 !important;
     }
     .main-content {
@@ -996,9 +996,12 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
     /* Convert arbitrary layout grids to vertical stack */
     div[style*="grid-template-columns: 1.8fr 1fr"],
     div[style*="grid-template-columns: 1.2fr 0.8fr"],
-    div[style*="grid-template-columns: 280px 1fr"],
-    div[style*="grid-template-columns: 1fr 1fr"] {
+    div[style*="grid-template-columns: 280px 1fr"] {
         grid-template-columns: 1fr !important;
+    }
+    /* Tab content - reduce side padding so cards are wider on mobile */
+    .tab-content.active {
+        padding: 12px !important;
     }
     
     /* Native App-Like Bottom Navigation */
@@ -1075,7 +1078,7 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
         padding: 12px 16px !important;
         padding-top: calc(env(safe-area-inset-top) + 12px) !important;
         height: auto !important;
-        min-height: 70px !important;
+        min-height: 52px !important;
         display: flex !important;
         flex-direction: row !important;
         align-items: center !important;
@@ -1302,57 +1305,51 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
 }
 
 @media (max-width: 1024px) {
-    /* Show user name below the avatar on mobile responsive viewports */
+    /* Keep profile as horizontal row — name/specialty beside the avatar */
     .top-nav .user-profile,
     .top-nav .top-nav-user {
-        flex-direction: column !important;
-        gap: 4px !important;
+        flex-direction: row !important;
+        gap: 8px !important;
         align-items: center !important;
-        justify-content: center !important;
-        text-align: center !important;
-        padding: 4px 6px !important;
-        min-height: auto !important;
+        justify-content: flex-end !important;
+        text-align: right !important;
         margin-left: auto !important;
         margin-right: 0 !important;
     }
-    
-    /* Override desktop hiding on mobile for the profile name container */
+
+    /* Show the name/specialty text block on all screen sizes */
     .top-nav .user-profile .desktop-only-flex,
-    .top-nav .top-nav-user .desktop-only-flex,
-    .top-nav .user-profile > div {
+    .top-nav .top-nav-user .desktop-only-flex {
         display: flex !important;
         flex-direction: column !important;
-        align-items: center !important;
+        align-items: flex-end !important;
         justify-content: center !important;
-        text-align: center !important;
+        text-align: right !important;
     }
-    
-    /* Style the name label below the avatar on mobile */
+
+    /* Name label */
     .top-nav .user-profile .desktop-only-flex div:first-child,
     .top-nav .user-profile .desktop-only-flex span:first-child,
-    .top-nav .top-nav-user .desktop-only-flex span:first-child,
-    .top-nav .user-profile > div > div:first-child {
-        font-size: 11px !important;
+    .top-nav .top-nav-user .desktop-only-flex span:first-child {
+        font-size: 12px !important;
         font-weight: 800 !important;
         color: #1A1D23 !important;
-        line-height: 1.1 !important;
-        text-align: center !important;
+        line-height: 1.2 !important;
+        white-space: nowrap !important;
     }
-    
-    /* Style the role/ID label below the avatar on mobile */
+
+    /* Specialty / role label */
     .top-nav .user-profile .desktop-only-flex div:last-child,
     .top-nav .user-profile .desktop-only-flex span:last-child,
-    .top-nav .top-nav-user .desktop-only-flex span:last-child,
-    .top-nav .user-profile > div > div:last-child {
-        font-size: 9px !important;
+    .top-nav .top-nav-user .desktop-only-flex span:last-child {
+        font-size: 10px !important;
         font-weight: 600 !important;
         color: var(--text-muted) !important;
-        line-height: 1.1 !important;
-        text-align: center !important;
-        margin-top: 1px !important;
+        line-height: 1.2 !important;
+        white-space: nowrap !important;
     }
-    
-    /* Hide chevron-down arrow on mobile for ultra clean look */
+
+    /* Hide chevron on mobile */
     .top-nav .user-profile i[data-lucide="chevron-down"],
     .top-nav .top-nav-user i[data-lucide="chevron-down"],
     .top-nav .user-profile svg.lucide-chevron-down,
