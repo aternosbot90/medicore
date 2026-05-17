@@ -10,7 +10,7 @@ router.use(verifyToken, isAdmin);
 // Get all staff users
 router.get('/users', async (req, res) => {
   try {
-    const users = await User.find({}, 'staff_id role name');
+    const users = await User.find({}, 'staff_id role name max_slots');
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -19,7 +19,7 @@ router.get('/users', async (req, res) => {
 
 // Create a new staff user
 router.post('/users', async (req, res) => {
-  const { staff_id, password, role, name } = req.body;
+  const { staff_id, password, role, name, max_slots } = req.body;
 
   if (!staff_id || !password || !role || !name) {
     return res.status(400).json({ error: 'All fields are required' });
@@ -38,10 +38,11 @@ router.post('/users', async (req, res) => {
       staff_id,
       password_hash: hash,
       role,
-      name
+      name,
+      max_slots: role === 'doctor' ? (max_slots ? Number(max_slots) : 10) : undefined
     });
 
-    res.status(201).json({ id: newUser._id, staff_id, role, name });
+    res.status(201).json({ id: newUser._id, staff_id, role, name, max_slots: newUser.max_slots });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
   }

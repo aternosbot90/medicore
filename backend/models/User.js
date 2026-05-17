@@ -25,6 +25,10 @@ const userSchema = new mongoose.Schema({
   isSetupComplete: {
     type: Boolean,
     default: false
+  },
+  max_slots: {
+    type: Number,
+    default: 10
   }
 }, { timestamps: true });
 

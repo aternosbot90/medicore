@@ -5,10 +5,12 @@ import api from '../utils/api';
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('analytics');
   const [staff, setStaff] = useState([]);
-  const [newStaff, setNewStaff] = useState({ staff_id: '', password: '', role: 'doctor', name: '' });
+  const [newStaff, setNewStaff] = useState({ staff_id: '', password: '', role: 'doctor', name: '', max_slots: 10 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -17,7 +19,7 @@ const AdminDashboard = () => {
     if (window.lucide) {
       window.lucide.createIcons();
     }
-  }, [activeTab]); // Re-run lucide on tab change
+  }, [activeTab, showProfileMenu, showAddStaffModal]);
 
   const fetchStaff = async () => {
     try {
@@ -43,7 +45,8 @@ const AdminDashboard = () => {
     try {
       await api.post('/admin/users', newStaff);
       setSuccess('Staff member added successfully!');
-      setNewStaff({ staff_id: '', password: '', role: 'doctor', name: '' });
+      setNewStaff({ staff_id: '', password: '', role: 'doctor', name: '', max_slots: 10 });
+      setShowAddStaffModal(false);
       fetchStaff();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to add staff');
@@ -89,15 +92,29 @@ const AdminDashboard = () => {
       </div>
 
       <div className="top-nav">
-        <div id="liveClock" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
+        <div id="liveClock" className="desktop-only-flex" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
           {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </div>
-        <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=100&h=100" alt="Admin" style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'cover' }} />
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '14px' }}>{user.name || 'Admin Chief'}</div>
+        <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto', cursor: 'pointer', position: 'relative' }} onClick={() => setShowProfileMenu(!showProfileMenu)}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }} className="desktop-only-flex">
+            <div style={{ fontWeight: 700, fontSize: '14px', color: '#1A1D23' }}>{user.name || 'Admin Chief'}</div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hospital Owner</div>
           </div>
+          <img src="https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=100&h=100" alt="Admin" style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'cover' }} />
+          
+          {showProfileMenu && (
+            <div className="glass-card animate-in" style={{ position: 'absolute', top: '100%', right: 0, marginTop: '12px', width: '180px', zIndex: 1200, padding: '12px' }} onClick={e => e.stopPropagation()}>
+              <div style={{ padding: '8px 12px', marginBottom: '8px', borderBottom: '1px solid #F1F5F9' }}>
+                <div style={{ fontWeight: 800, fontSize: '13px' }}>{user.name || 'Admin Chief'}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{user.email || 'admin@medicore.com'}</div>
+              </div>
+              <div className="dropdown-item" onClick={() => { setActiveTab('analytics'); setShowProfileMenu(false); }}><i data-lucide="user"></i> Analytics</div>
+              <div className="dropdown-item" onClick={() => { setActiveTab('config'); setShowProfileMenu(false); }}><i data-lucide="settings"></i> Settings</div>
+              <div style={{ borderTop: '1px solid #F1F5F9', marginTop: '8px', paddingTop: '8px' }}>
+                <div className="dropdown-item" onClick={handleLogout} style={{ color: 'var(--danger)' }}><i data-lucide="log-out"></i> Logout</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -126,10 +143,15 @@ const AdminDashboard = () => {
 
         {activeTab === 'workforce' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '24px' }}>Hospital Staffing</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h1 style={{ fontSize: '28px', fontWeight: 800, margin: 0 }}>Hospital Staffing</h1>
+              <button className="btn btn-primary mobile-only-flex" onClick={() => setShowAddStaffModal(true)} style={{ gap: '8px' }}>
+                <i data-lucide="plus" style={{ width: '16px' }}></i> Add Staff
+              </button>
+            </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
-              <div className="glass-card">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }} className="mobile-stack">
+              <div className="glass-card desktop-only-flex" style={{ flexDirection: 'column' }}>
                 <h3 style={{ marginBottom: '16px' }}>Add New Staff Account</h3>
                 {error && <div style={{ color: 'red', marginBottom: '12px', background: '#FEF2F2', padding: '8px', borderRadius: '8px' }}>{error}</div>}
                 {success && <div style={{ color: 'green', marginBottom: '12px', background: '#ECFDF5', padding: '8px', borderRadius: '8px' }}>{success}</div>}
@@ -157,7 +179,13 @@ const AdminDashboard = () => {
                       <option value="admin">Admin</option>
                     </select>
                   </div>
-                  <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
+                  {newStaff.role === 'doctor' && (
+                    <div className="form-group" style={{ animation: 'fadeIn 0.2s ease-out' }}>
+                      <label>Daily Max Slots Control</label>
+                      <input type="number" className="form-control" min="1" max="100" value={newStaff.max_slots} onChange={e => setNewStaff({...newStaff, max_slots: Number(e.target.value)})} required />
+                    </div>
+                  )}
+                  <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center', marginTop: '16px' }}>
                     {loading ? 'Adding...' : 'Create Account'}
                   </button>
                 </form>
@@ -168,7 +196,7 @@ const AdminDashboard = () => {
                 <div className="table-wrapper">
                   <table className="elite-table">
                     <thead>
-                      <tr><th>Name</th><th>Staff ID</th><th>Role</th><th>Actions</th></tr>
+                      <tr><th>Name</th><th>Staff ID</th><th>Role</th><th>Daily Max Slots</th><th>Actions</th></tr>
                     </thead>
                     <tbody>
                       {staff.map(user => (
@@ -176,6 +204,7 @@ const AdminDashboard = () => {
                           <td><b>{user.name}</b></td>
                           <td>{user.staff_id}</td>
                           <td><span className="status-badge available" style={{ textTransform: 'capitalize' }}>{user.role}</span></td>
+                          <td><b>{user.role === 'doctor' ? (user.max_slots || 10) : '-'}</b></td>
                           <td>
                             {user.role !== 'admin' && (
                               <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleDeleteStaff(user._id || user.id)}>Revoke Access</button>
@@ -188,6 +217,54 @@ const AdminDashboard = () => {
                 </div>
               </div>
             </div>
+
+            {/* Mobile dialog overlay for adding staff */}
+            {showAddStaffModal && (
+              <div className="modal-overlay" onClick={() => setShowAddStaffModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+                <div className="glass-card" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '400px', padding: '24px', position: 'relative', background: 'white' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0 }}>Add New Staff Account</h3>
+                    <button onClick={() => setShowAddStaffModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><i data-lucide="x" style={{ width: '20px' }}></i></button>
+                  </div>
+                  {error && <div style={{ color: 'red', marginBottom: '12px', background: '#FEF2F2', padding: '8px', borderRadius: '8px' }}>{error}</div>}
+                  {success && <div style={{ color: 'green', marginBottom: '12px', background: '#ECFDF5', padding: '8px', borderRadius: '8px' }}>{success}</div>}
+                  <form onSubmit={handleAddStaff}>
+                    <div className="form-group">
+                      <label>Name</label>
+                      <input type="text" className="form-control" value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} required />
+                    </div>
+                    <div className="form-group">
+                      <label>Staff ID (Username)</label>
+                      <input type="text" className="form-control" value={newStaff.staff_id} onChange={e => setNewStaff({...newStaff, staff_id: e.target.value})} required />
+                    </div>
+                    <div className="form-group">
+                      <label>Password</label>
+                      <input type="password" className="form-control" value={newStaff.password} onChange={e => setNewStaff({...newStaff, password: e.target.value})} required />
+                    </div>
+                    <div className="form-group">
+                      <label>Role</label>
+                      <select className="form-control" value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
+                        <option value="doctor">Doctor</option>
+                        <option value="receptionist">Receptionist</option>
+                        <option value="lab">Laboratory</option>
+                        <option value="pharmacy">Pharmacy</option>
+                        <option value="patient">Patient</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    {newStaff.role === 'doctor' && (
+                      <div className="form-group">
+                        <label>Daily Max Slots Control</label>
+                        <input type="number" className="form-control" min="1" max="100" value={newStaff.max_slots} onChange={e => setNewStaff({...newStaff, max_slots: Number(e.target.value)})} required />
+                      </div>
+                    )}
+                    <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center', marginTop: '16px' }}>
+                      {loading ? 'Adding...' : 'Create Account'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -221,6 +298,13 @@ const AdminDashboard = () => {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="mobile-bottom-nav">
+        <div className={`mob-nav-item ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}><i data-lucide="bar-chart-3"></i><span>Analytics</span></div>
+        <div className={`mob-nav-item ${activeTab === 'workforce' ? 'active' : ''}`} onClick={() => setActiveTab('workforce')}><i data-lucide="users"></i><span>Workforce</span></div>
+        <div className={`mob-nav-item ${activeTab === 'financials' ? 'active' : ''}`} onClick={() => setActiveTab('financials')}><i data-lucide="landmark"></i><span>Financials</span></div>
+        <div className={`mob-nav-item ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}><i data-lucide="settings"></i><span>Config</span></div>
       </div>
     </>
   );

@@ -1087,7 +1087,7 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
         margin: 0 !important;
         width: 100% !important;
         border-bottom: 1px solid #E2E8F0 !important;
-        z-index: 10 !important;
+        z-index: 1050 !important;
     }
     .top-nav > div {
         max-width: auto !important;
@@ -1157,25 +1157,34 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
     transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex !important;
     align-items: center !important;
-    gap: 12px !important;
-    padding: 12px 16px !important;
-    border-radius: 12px !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    gap: 8px !important;
+    padding: 8px 12px !important;
+    border-radius: 10px !important;
     margin-bottom: 2px;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    cursor: pointer;
 }
 .dropdown-item:hover {
     background: #F8FAFC !important;
     transform: translateX(4px);
 }
-.dropdown-item i {
-    width: 18px !important;
-    height: 18px !important;
+.dropdown-item i,
+.dropdown-item svg {
+    width: 16px !important;
+    height: 16px !important;
     color: #64748B;
     transition: 0.2s;
+    flex-shrink: 0 !important;
 }
-.dropdown-item:hover i {
-    color: var(--primary);
+.dropdown-item:hover i,
+.dropdown-item:hover svg {
+    color: var(--primary) !important;
 }
-.dropdown-item:hover[style*="color: var(--danger)"] i {
+.dropdown-item:hover[style*="color: var(--danger)"] i,
+.dropdown-item:hover[style*="color: var(--danger)"] svg {
     color: var(--danger) !important;
 }
 .dropdown-item:hover[style*="color: var(--danger)"] {
@@ -1226,3 +1235,165 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
     background: #CBD5E1;
     border-radius: 4px;
 }
+
+@media (max-width: 1024px) {
+    /* Responsive Chart Container */
+    .bar-chart-container {
+        min-width: 100% !important;
+    }
+}
+
+@media (max-width: 640px) {
+    /* Tighten chart spacing and bar widths on mobile for a perfect fit */
+    .bar-chart-container {
+        justify-content: space-between !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+    .chart-bar {
+        width: 12px !important;
+        border-radius: 4px 4px 0 0 !important;
+    }
+    .bar-pair {
+        gap: 4px !important;
+    }
+    .bar-label {
+        font-size: 9px !important;
+    }
+    .chart-legend-inline {
+        gap: 12px !important;
+        flex-wrap: wrap !important;
+    }
+}
+
+/* TIGHTEN DROPDOWN MENUS (FIX EXCESSS WHITE SPACE GLOBALLY) */
+.top-nav .glass-card {
+    padding: 8px !important;
+    width: max-content !important;
+    min-width: 220px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08) !important;
+}
+
+/* Tighten dropdown header container */
+.top-nav .glass-card > div:first-child {
+    padding: 6px 8px !important;
+    margin-bottom: 4px !important;
+}
+
+/* Tighten dropdown divider */
+.top-nav .glass-card div[style*="height: 1px"],
+.top-nav .glass-card hr {
+    margin: 4px 0 !important;
+    background-color: var(--border) !important;
+}
+
+/* Tighten dropdown header typography */
+.top-nav .glass-card > div:first-child > div:first-child {
+    font-weight: 800 !important;
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+}
+.top-nav .glass-card > div:first-child > div:last-child {
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    color: var(--text-muted) !important;
+    margin-top: 2px;
+}
+
+@media (max-width: 1024px) {
+    /* Show user name below the avatar on mobile responsive viewports */
+    .top-nav .user-profile,
+    .top-nav .top-nav-user {
+        flex-direction: column !important;
+        gap: 4px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: 4px 6px !important;
+        min-height: auto !important;
+        margin-left: auto !important;
+        margin-right: 0 !important;
+    }
+    
+    /* Override desktop hiding on mobile for the profile name container */
+    .top-nav .user-profile .desktop-only-flex,
+    .top-nav .top-nav-user .desktop-only-flex,
+    .top-nav .user-profile > div {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+    
+    /* Style the name label below the avatar on mobile */
+    .top-nav .user-profile .desktop-only-flex div:first-child,
+    .top-nav .user-profile .desktop-only-flex span:first-child,
+    .top-nav .top-nav-user .desktop-only-flex span:first-child,
+    .top-nav .user-profile > div > div:first-child {
+        font-size: 11px !important;
+        font-weight: 800 !important;
+        color: #1A1D23 !important;
+        line-height: 1.1 !important;
+        text-align: center !important;
+    }
+    
+    /* Style the role/ID label below the avatar on mobile */
+    .top-nav .user-profile .desktop-only-flex div:last-child,
+    .top-nav .user-profile .desktop-only-flex span:last-child,
+    .top-nav .top-nav-user .desktop-only-flex span:last-child,
+    .top-nav .user-profile > div > div:last-child {
+        font-size: 9px !important;
+        font-weight: 600 !important;
+        color: var(--text-muted) !important;
+        line-height: 1.1 !important;
+        text-align: center !important;
+        margin-top: 1px !important;
+    }
+    
+    /* Hide chevron-down arrow on mobile for ultra clean look */
+    .top-nav .user-profile i[data-lucide="chevron-down"],
+    .top-nav .top-nav-user i[data-lucide="chevron-down"],
+    .top-nav .user-profile svg.lucide-chevron-down,
+    .top-nav .top-nav-user svg.lucide-chevron-down {
+        display: none !important;
+    }
+}
+
+/* MOBILE ONLY DISPLAY HELPERS */
+.mobile-only-flex {
+    display: none !important;
+}
+
+@media (max-width: 1024px) {
+    .mobile-only-flex {
+        display: flex !important;
+    }
+}
+
+@media (max-width: 1024px) {
+    /* Enable horizontal sliding/scrolling for tables on mobile responsive */
+    .table-wrapper,
+    .table-responsive {
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    .table-wrapper table,
+    .table-responsive table {
+        min-width: 600px !important;
+    }
+    
+    /* Prevent CSS Grid items (like glass-card) from expanding wide due to large table content */
+    .glass-card {
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+}
+
+
+
+
+
