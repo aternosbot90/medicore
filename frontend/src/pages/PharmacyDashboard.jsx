@@ -8,40 +8,68 @@ const PharmacyDashboard = () => {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const [inventory, setInventory] = useState([
-    { id: 1, name: "Paracetamol 650mg", category: "Pain Relief", sku: "PAR-650", stock: 250, unit: "Strip", mrp: 25.00, status: "In Stock", expiry: "30/06/2025" },
-    { id: 2, name: "Azithromycin 500mg", category: "Antibiotic", sku: "AZI-500", stock: 0, unit: "Strip", mrp: 55.00, status: "Out of Stock", expiry: "--" },
-    { id: 3, name: "Cetirizine 10mg", category: "Anti-Allergic", sku: "CET-10", stock: 12, unit: "Strip", mrp: 18.00, status: "Low Stock", expiry: "15/08/2024" },
-    { id: 4, name: "Pantoprazole 40mg", category: "Antacid", sku: "PAN-40", stock: 145, unit: "Strip", mrp: 45.00, status: "In Stock", expiry: "22/12/2025" },
-    { id: 5, name: "Amoxicillin 250mg", category: "Antibiotic", sku: "AMX-250", stock: 50, unit: "Capsule", mrp: 35.00, status: "In Stock", expiry: "10/11/2024" }
-  ]);
-
+  const [inventory, setInventory] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
+
+  // Beautiful status notifications states to purge window.alert
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Modal states for inventory operations
+  const [showMedicineModal, setShowMedicineModal] = useState(false);
+  const [modalMode, setModalMode] = useState('add'); // 'add', 'edit', 'restock'
+  const [formData, setFormData] = useState({
+    name: '',
+    category: 'Pain Relief',
+    sku: '',
+    stock: 0,
+    unit: 'Strip',
+    mrp: 0,
+    expiry: ''
+  });
+  const [currentId, setCurrentId] = useState(null);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  const fetchInventory = async () => {
+    try {
+      const res = await api.get('/medicines');
+      setInventory(res.data);
+    } catch (err) {
+      console.error("Failed to fetch inventory", err);
+    }
+  };
+
   const fetchData = async () => {
     try {
       const res = await api.get('/prescriptions');
       setPrescriptions(res.data);
+      await fetchInventory();
     } catch (err) {
       console.error(err);
     }
   };
 
-  const [alerts, setAlerts] = useState([
-    { id: "ALT-1", item: "Azithromycin 500mg", type: "Out of Stock", severity: "High", date: "Today" },
-    { id: "ALT-2", item: "Cetirizine 10mg", type: "Low Stock", severity: "Medium", date: "Yesterday" },
-    { id: "ALT-3", item: "Cough Syrup 100ml", type: "Expiring Soon", severity: "Medium", date: "2 Days Ago" }
-  ]);
+  // Compute stock alerts dynamically from real inventory
+  const alerts = inventory
+    .filter(item => item.status === 'Low Stock' || item.status === 'Out of Stock')
+    .map((item, idx) => ({
+      _id: item._id,
+      id: `ALT-${idx + 1}`,
+      item: item.name,
+      type: item.status,
+      severity: item.status === 'Out of Stock' ? 'High' : 'Medium',
+      date: 'Today',
+      rawItem: item
+    }));
 
   useEffect(() => {
     if (window.lucide) {
       window.lucide.createIcons();
     }
-  }, [activeTab, showProfileMenu]);
+  }, [activeTab, showProfileMenu, showMedicineModal]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -53,10 +81,91 @@ const PharmacyDashboard = () => {
     try {
       await api.put(`/prescriptions/${id}`, { status: 'Dispensed' });
       fetchData();
-      alert('Prescription Dispensed Successfully');
+      setSuccessMessage('Prescription Dispensed Successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error(err);
-      alert('Failed to dispense prescription');
+      setErrorMessage('Failed to dispense prescription');
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
+  };
+
+  const handleOpenAdd = () => {
+    setModalMode('add');
+    setFormData({
+      name: '',
+      category: 'Pain Relief',
+      sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+      stock: 50,
+      unit: 'Strip',
+      mrp: 20.00,
+      expiry: '31/12/2025'
+    });
+    setShowMedicineModal(true);
+  };
+
+  const handleOpenEdit = (item) => {
+    setModalMode('edit');
+    setCurrentId(item._id);
+    setFormData({
+      name: item.name,
+      category: item.category,
+      sku: item.sku,
+      stock: item.stock,
+      unit: item.unit,
+      mrp: item.mrp,
+      expiry: item.expiry
+    });
+    setShowMedicineModal(true);
+  };
+
+  const handleOpenRestock = (item) => {
+    setModalMode('restock');
+    setCurrentId(item._id);
+    setFormData({
+      name: item.name,
+      category: item.category,
+      sku: item.sku,
+      stock: item.stock,
+      unit: item.unit,
+      mrp: item.mrp,
+      expiry: item.expiry
+    });
+    setShowMedicineModal(true);
+  };
+
+  const handleSaveMedicine = async (e) => {
+    e.preventDefault();
+    try {
+      if (modalMode === 'add') {
+        await api.post('/medicines', formData);
+        setSuccessMessage('Medicine added successfully');
+      } else {
+        await api.put(`/medicines/${currentId}`, formData);
+        setSuccessMessage('Medicine updated successfully');
+      }
+      setShowMedicineModal(false);
+      fetchInventory();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error(err);
+      setErrorMessage(err.response?.data?.error || 'Failed to save medicine');
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
+  };
+
+  const handleDeleteMedicine = async (id) => {
+    if (window.confirm('Are you sure you want to delete this medicine?')) {
+      try {
+        await api.delete(`/medicines/${id}`);
+        setSuccessMessage('Medicine deleted successfully');
+        fetchInventory();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } catch (err) {
+        console.error(err);
+        setErrorMessage('Failed to delete medicine');
+        setTimeout(() => setErrorMessage(''), 3000);
+      }
     }
   };
 
@@ -78,8 +187,16 @@ const PharmacyDashboard = () => {
       </div>
 
       <div className="top-nav">
-        <div id="liveClock" className="desktop-only-flex" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
-          {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <span style={{ fontSize: '17px', fontWeight: 950, color: 'var(--primary)', letterSpacing: '-0.5px' }}>MediCore</span>
+            <span style={{ fontSize: '10px', background: 'var(--primary-light)', color: 'var(--primary)', padding: '3px 8px', borderRadius: '99px', fontWeight: 700 }} className="desktop-only-inline">
+              Pharmacy Portal
+            </span>
+          </div>
+          <div id="liveClock" className="desktop-only-flex" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
+            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
         </div>
         <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto', cursor: 'pointer', position: 'relative' }} onClick={() => setShowProfileMenu(!showProfileMenu)}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }} className="desktop-only-flex">
@@ -107,6 +224,9 @@ const PharmacyDashboard = () => {
       </div>
 
       <div className="main-content">
+        {successMessage && <div style={{ color: 'green', background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '12px 20px', borderRadius: '12px', marginBottom: '24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><i data-lucide="check-circle"></i>{successMessage}</div>}
+        {errorMessage && <div style={{ color: 'red', background: '#FEF2F2', border: '1px solid #FCA5A5', padding: '12px 20px', borderRadius: '12px', marginBottom: '24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><i data-lucide="alert-triangle"></i>{errorMessage}</div>}
+
         {activeTab === 'dash' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
             <div className="dashboard-header" style={{ marginBottom: '32px' }}>
@@ -117,19 +237,19 @@ const PharmacyDashboard = () => {
             <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
               <div className="kpi-card" onClick={() => setActiveTab('inventory')} style={{ cursor: 'pointer' }}>
                 <div className="kpi-icon-box" style={{ background: '#EFF6FF', color: '#3B82F6' }}><i data-lucide="package"></i></div>
-                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700 }}>Total Items</div><div style={{ fontSize: '20px', fontWeight: 800, color: '#1A1D23' }}>1,245</div></div>
+                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700 }}>Total Items</div><div style={{ fontSize: '20px', fontWeight: 800, color: '#1A1D23' }}>{inventory.length}</div></div>
               </div>
               <div className="kpi-card">
                 <div className="kpi-icon-box" style={{ background: '#ECFDF5', color: '#10B981' }}><i data-lucide="check-circle"></i></div>
-                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700 }}>In Stock</div><div style={{ fontSize: '20px', fontWeight: 800, color: '#1A1D23' }}>985</div></div>
+                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700 }}>In Stock</div><div style={{ fontSize: '20px', fontWeight: 800, color: '#1A1D23' }}>{inventory.filter(item => item.status === 'In Stock').length}</div></div>
               </div>
               <div className="kpi-card" onClick={() => setActiveTab('stock-alerts')} style={{ cursor: 'pointer' }}>
                 <div className="kpi-icon-box" style={{ background: '#FFFBEB', color: '#F59E0B' }}><i data-lucide="alert-triangle"></i></div>
-                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700 }}>Low Stock</div><div style={{ fontSize: '20px', fontWeight: 800, color: '#1A1D23' }}>12</div></div>
+                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700 }}>Low Stock</div><div style={{ fontSize: '20px', fontWeight: 800, color: '#1A1D23' }}>{inventory.filter(item => item.status === 'Low Stock').length}</div></div>
               </div>
               <div className="kpi-card" onClick={() => setActiveTab('stock-alerts')} style={{ cursor: 'pointer' }}>
                 <div className="kpi-icon-box" style={{ background: '#FEF2F2', color: '#EF4444' }}><i data-lucide="package-x"></i></div>
-                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700 }}>Out of Stock</div><div style={{ fontSize: '20px', fontWeight: 800, color: '#1A1D23' }}>8</div></div>
+                <div><div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700 }}>Out of Stock</div><div style={{ fontSize: '20px', fontWeight: 800, color: '#1A1D23' }}>{inventory.filter(item => item.status === 'Out of Stock').length}</div></div>
               </div>
             </div>
 
@@ -220,7 +340,7 @@ const PharmacyDashboard = () => {
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
             <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h2 style={{ fontSize: '24px', fontWeight: 800 }}>Inventory</h2>
-              <button className="btn btn-primary"><i data-lucide="plus"></i> Add Item</button>
+              <button className="btn btn-primary" onClick={handleOpenAdd}><i data-lucide="plus"></i> Add Item</button>
             </div>
             <div className="glass-card">
               <div className="table-responsive">
@@ -230,12 +350,17 @@ const PharmacyDashboard = () => {
                   </thead>
                   <tbody>
                     {inventory.map(inv => (
-                      <tr key={inv.id}>
+                      <tr key={inv._id}>
                         <td><div style={{ fontWeight: 700 }}>{inv.name}</div><div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{inv.category}</div></td>
                         <td><b style={{ color: inv.stock > 20 ? 'var(--success)' : 'var(--danger)' }}>{inv.stock} {inv.unit}</b></td>
                         <td><span className={`status-badge ${inv.stock > 20 ? 'available' : 'critical'}`}>{inv.status}</span></td>
                         <td>{inv.expiry}</td>
-                        <td><button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }}>Edit</button></td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => handleOpenEdit(inv)}>Edit</button>
+                            <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', color: 'var(--danger)', borderColor: '#FECACA' }} onClick={() => handleDeleteMedicine(inv._id)}>Delete</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -262,7 +387,7 @@ const PharmacyDashboard = () => {
                         <td><span style={{ fontWeight: 700 }}>{a.item}</span></td>
                         <td>{a.type}</td>
                         <td><span className={`status-badge ${a.severity === 'High' ? 'critical' : 'pending'}`}>{a.severity}</span></td>
-                        <td><button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }}>Resolve</button></td>
+                        <td><button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => handleOpenRestock(a.rawItem)}>Resolve</button></td>
                       </tr>
                     ))}
                   </tbody>
@@ -291,6 +416,90 @@ const PharmacyDashboard = () => {
         <div className={`mob-nav-item ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}><i data-lucide="package"></i><span>Items</span></div>
         <div className={`mob-nav-item ${activeTab === 'stock-alerts' ? 'active' : ''}`} onClick={() => setActiveTab('stock-alerts')}><i data-lucide="alert-triangle"></i><span>Alerts</span></div>
       </div>
+
+      {/* Unified Manage Medicine Modal */}
+      {showMedicineModal && (
+        <div className="modal-overlay" style={{ display: 'flex', zIndex: 1300, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowMedicineModal(false)}>
+          <div className="modal-box glass-card" style={{ width: '90%', maxWidth: '500px', background: 'white', padding: '32px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', position: 'relative' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#1A1D23', margin: 0 }}>
+                {modalMode === 'add' ? 'Add New Medicine' : modalMode === 'restock' ? 'Restock Medicine' : 'Edit Medicine Details'}
+              </h2>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }} onClick={() => setShowMedicineModal(false)}>
+                <i data-lucide="x" style={{ width: '20px', height: '20px' }}></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMedicine}>
+              {modalMode !== 'restock' ? (
+                <>
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#64748B' }}>Medicine Name</label>
+                    <input type="text" className="form-control" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required style={{ width: '100%', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px' }} />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    <div className="form-group">
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#64748B' }}>Category</label>
+                      <select className="form-control" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required style={{ width: '100%', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                        <option value="Pain Relief">Pain Relief</option>
+                        <option value="Antibiotic">Antibiotic</option>
+                        <option value="Anti-Allergic">Anti-Allergic</option>
+                        <option value="Antacid">Antacid</option>
+                        <option value="Cough Syrup">Cough Syrup</option>
+                        <option value="Vitamins">Vitamins</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#64748B' }}>SKU Code</label>
+                      <input type="text" className="form-control" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} required style={{ width: '100%', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px' }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    <div className="form-group">
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#64748B' }}>Unit Type</label>
+                      <select className="form-control" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} required style={{ width: '100%', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                        <option value="Strip">Strip</option>
+                        <option value="Capsule">Capsule</option>
+                        <option value="Bottle">Bottle</option>
+                        <option value="Tablet">Tablet</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#64748B' }}>MRP (₹)</label>
+                      <input type="number" step="0.01" className="form-control" value={formData.mrp} onChange={e => setFormData({...formData, mrp: Number(e.target.value)})} required style={{ width: '100%', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px' }} />
+                    </div>
+                  </div>
+                </>
+              ) : null}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#64748B' }}>
+                    {modalMode === 'restock' ? 'New Stock Quantity' : 'Initial Stock'}
+                  </label>
+                  <input type="number" className="form-control" value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} required style={{ width: '100%', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px' }} />
+                </div>
+
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#64748B' }}>Expiry Date</label>
+                  <input type="text" className="form-control" placeholder="DD/MM/YYYY" value={formData.expiry} onChange={e => setFormData({...formData, expiry: e.target.value})} required style={{ width: '100%', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center', height: '48px', borderRadius: '12px' }} onClick={() => setShowMedicineModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', height: '48px', borderRadius: '12px', background: 'var(--primary)' }}>
+                  {modalMode === 'add' ? 'Add Medicine' : modalMode === 'restock' ? 'Verify Restock' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 };

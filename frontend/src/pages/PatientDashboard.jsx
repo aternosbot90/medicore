@@ -51,6 +51,14 @@ const PatientDashboard = () => {
 
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [patientProfile, setPatientProfile] = useState(null);
+
+  const [editProfileData, setEditProfileData] = useState({ name: '', age: '', gender: 'Male', contact: '', address: '', bloodGroup: 'O+', allergies: '', medicalHistory: '' });
+  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [profileMsg, setProfileMsg] = useState({ type: '', text: '' });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const [records, setRecords] = useState([
     { id: 'REC-1', name: 'Comprehensive Blood Count', date: '10 May 2025', type: 'Lab Report', size: '1.2MB' },
@@ -62,12 +70,37 @@ const PatientDashboard = () => {
   }, []);
 
   const fetchData = async () => {
+    if (!user.id) return;
+    
+    // Fetch Profile Independently
+    try {
+      const profileRes = await api.get(`/patients/${user.id}`);
+      setPatientProfile(profileRes.data);
+      setEditProfileData({
+        name: profileRes.data.name || '',
+        age: profileRes.data.age || '',
+        gender: profileRes.data.gender || 'Male',
+        contact: profileRes.data.contact || '',
+        address: profileRes.data.address || '',
+        bloodGroup: profileRes.data.bloodGroup || 'O+',
+        allergies: profileRes.data.allergies || '',
+        medicalHistory: Array.isArray(profileRes.data.medicalHistory) ? profileRes.data.medicalHistory.join(', ') : ''
+      });
+    } catch (profileErr) {
+      console.warn("Failed to load full patient profile details", profileErr);
+    }
+
+    // Fetch Dashboard Data
     try {
       const docsRes = await api.get('/auth/doctors');
       setDoctors(docsRes.data);
 
       const appsRes = await api.get(`/appointments?patientId=${user.id}`);
       setAppointments(appsRes.data);
+
+      const prescriptionsRes = await api.get('/prescriptions');
+      const myPrescriptions = prescriptionsRes.data.filter(p => p.patientId?._id === user.id || p.patientId === user.id);
+      setPrescriptions(myPrescriptions);
     } catch (err) {
       console.error(err);
     }
@@ -77,7 +110,7 @@ const PatientDashboard = () => {
     if (window.lucide) {
       window.lucide.createIcons();
     }
-  }, [activeTab, showAppointmentModal, appointments, doctors]);
+  }, [activeTab, showAppointmentModal, appointments, doctors, showProfileMenu, detailsModalOpen]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -85,9 +118,48 @@ const PatientDashboard = () => {
     navigate('/login');
   };
 
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setIsUpdatingProfile(true);
+    setProfileMsg({ type: '', text: '' });
+    try {
+      const formattedHistory = editProfileData.medicalHistory.split(',').map(item => item.trim()).filter(Boolean);
+      const res = await api.put(`/patients/${user.id}`, { ...editProfileData, medicalHistory: formattedHistory });
+      setPatientProfile(res.data);
+      const updatedUser = { ...user, name: res.data.name };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setProfileMsg({ type: 'success', text: 'Profile updated successfully!' });
+    } catch (err) {
+      setProfileMsg({ type: 'error', text: err.response?.data?.error || 'Failed to update profile.' });
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    setProfileMsg({ type: '', text: '' });
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      return setProfileMsg({ type: 'error', text: 'New passwords do not match.' });
+    }
+    setIsUpdatingPassword(true);
+    try {
+      await api.put(`/patients/${user.id}/password`, { 
+        currentPassword: passwordData.currentPassword, 
+        newPassword: passwordData.newPassword 
+      });
+      setProfileMsg({ type: 'success', text: 'Password updated successfully!' });
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      setProfileMsg({ type: 'error', text: err.response?.data?.error || 'Failed to update password.' });
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
   const bookDoctor = (doc) => {
     setSelectedDoctor(doc);
-    setShowAppointmentModal(true);
+    setActiveTab('book-appointment');
   };
 
   const confirmBooking = async () => {
@@ -145,8 +217,16 @@ const PatientDashboard = () => {
       </div>
 
       <div className="top-nav">
-        <div id="liveClock" className="desktop-only-flex" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
-          {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <span style={{ fontSize: '17px', fontWeight: 950, color: 'var(--primary)', letterSpacing: '-0.5px' }}>MediCore</span>
+            <span style={{ fontSize: '10px', background: 'var(--primary-light)', color: 'var(--primary)', padding: '3px 8px', borderRadius: '99px', fontWeight: 700 }} className="desktop-only-inline">
+              Patient Portal
+            </span>
+          </div>
+          <div id="liveClock" className="desktop-only-flex" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
+            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
         </div>
         <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto', cursor: 'pointer', position: 'relative' }} onClick={() => setShowProfileMenu(!showProfileMenu)}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }} className="desktop-only-flex">
@@ -163,8 +243,8 @@ const PatientDashboard = () => {
                 <div style={{ fontWeight: 800, fontSize: '13px' }}>{user.name}</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{user.email}</div>
               </div>
-              <div className="dropdown-item" onClick={() => { setActiveTab('summary'); setShowProfileMenu(false); }} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}><i data-lucide="user" style={{ width: '16px' }}></i> My Profile</div>
-              <div className="dropdown-item" onClick={() => { setActiveTab('summary'); setShowProfileMenu(false); }} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}><i data-lucide="settings" style={{ width: '16px' }}></i> Settings</div>
+              <div className="dropdown-item" onClick={() => { setActiveTab('profile'); setShowProfileMenu(false); }} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}><i data-lucide="user" style={{ width: '16px' }}></i> My Profile</div>
+              <div className="dropdown-item" onClick={() => { setActiveTab('profile'); setShowProfileMenu(false); }} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}><i data-lucide="settings" style={{ width: '16px' }}></i> Settings</div>
               <div style={{ borderTop: '1px solid #F1F5F9', marginTop: '8px', paddingTop: '8px' }}>
                 <div className="dropdown-item" onClick={handleLogout} style={{ padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, color: 'var(--danger)', cursor: 'pointer' }}><i data-lucide="log-out" style={{ width: '16px' }}></i> Logout</div>
               </div>
@@ -295,12 +375,35 @@ const PatientDashboard = () => {
             <div className="glass-card" style={{ padding: '12px' }}>
               <div className="table-responsive">
                 <table className="elite-table" style={{ margin: 0, border: 'none' }}>
-                  <thead style={{ background: '#F8FAFC' }}><tr><th>Medicine</th><th>Instruction</th><th>Frequency</th><th>Doctor</th><th>Refill Status</th></tr></thead>
+                  <thead style={{ background: '#F8FAFC' }}><tr><th>Medicine</th><th>Instruction</th><th>Frequency</th><th>Doctor</th><th>Dispense Status</th></tr></thead>
                   <tbody>
-                    <tr>
-                      <td><div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i data-lucide="pill"></i></div><div><b>Amlodipine (5mg)</b><div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hypertension</div></div></div></td>
-                      <td>Take after breakfast</td><td><span className="status-badge available" style={{ fontSize: '11px' }}>1 - 0 - 1</span></td><td>Dr. William Harrison</td><td><span style={{ color: 'var(--success)', fontWeight: 800, fontSize: '12px' }}>ACTIVE</span></td>
-                    </tr>
+                    {prescriptions.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                          No active prescriptions found in your medical records.
+                        </td>
+                      </tr>
+                    ) : (
+                      prescriptions.flatMap(p => (p.medicines || []).map((m, idx) => (
+                        <tr key={`${p._id}-${idx}`}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <i data-lucide="pill"></i>
+                              </div>
+                              <div>
+                                <b>{m.name} ({m.dose})</b>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{m.notes || 'General Treatment'}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>{m.timing || 'As Directed'}</td>
+                          <td><span className="status-badge available" style={{ fontSize: '11px' }}>{m.freq}</span></td>
+                          <td>{p.doctorId?.name || 'Consulting Specialist'}</td>
+                          <td><span style={{ color: p.status === 'Dispensed' ? 'var(--success)' : 'var(--warning)', fontWeight: 800, fontSize: '12px' }}>{p.status.toUpperCase()}</span></td>
+                        </tr>
+                      )))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -322,34 +425,222 @@ const PatientDashboard = () => {
             </div>
           </div>
         )}
-      </div>
 
-      {showAppointmentModal && selectedDoctor && (
-        <div className="modal-overlay" style={{ display: 'flex', zIndex: 1100 }}>
-          <div className="modal-box" style={{ width: '95%', maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '22px', fontWeight: 900 }}>Secure Booking & Payment</h2>
-              <button className="btn" style={{ padding: '8px' }} onClick={() => setShowAppointmentModal(false)}><i data-lucide="x"></i></button>
-            </div>
-            <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-              <div>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '20px', padding: '12px', background: '#F8FAFC', borderRadius: '12px' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800 }}>{selectedDoctor.name ? selectedDoctor.name.substring(0,2).toUpperCase() : 'DR'}</div>
-                  <div><div style={{ fontWeight: 800, fontSize: '15px' }}>{selectedDoctor.name}</div><div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{selectedDoctor.specialty}</div></div>
-                </div>
-                <div className="form-group" style={{ marginBottom: '16px' }}><label style={{ fontSize: '12px', fontWeight: 800, marginBottom: '8px', display: 'block' }}>Select Date</label><input type="date" className="form-control" value={appointmentDate} onChange={e => setAppointmentDate(e.target.value)} /></div>
-                <div className="form-group" style={{ marginBottom: '16px' }}><label style={{ fontSize: '12px', fontWeight: 800, marginBottom: '8px', display: 'block' }}>Preferred Time Slot</label><div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>{['10:30 AM', '11:00 AM', '02:30 PM'].map(time => (<div key={time} style={{ padding: '8px', textAlign: 'center', background: appointmentTime === time ? 'var(--primary-light)' : '#F8FAFC', color: appointmentTime === time ? 'var(--primary)' : 'var(--text-muted)', borderRadius: '8px', fontWeight: 700, fontSize: '11px', cursor: 'pointer', border: appointmentTime === time ? '2px solid var(--primary)' : '2px solid transparent' }} onClick={() => setAppointmentTime(time)}>{time}</div>))}</div></div>
-                <div className="form-group" style={{ marginBottom: '16px' }}><label style={{ fontSize: '12px', fontWeight: 800, marginBottom: '8px', display: 'block' }}>Reason for Visit</label><textarea className="form-control" style={{ minHeight: '60px', fontSize: '13px' }} placeholder="Briefly describe symptoms..." value={appointmentReason} onChange={e => setAppointmentReason(e.target.value)}></textarea></div>
+        {activeTab === 'profile' && (
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '24px' }}>My Profile & Settings</h1>
+            
+            {profileMsg.text && (
+              <div style={{ padding: '14px', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', 
+                background: profileMsg.type === 'success' ? '#F0FDF4' : '#FEF2F2',
+                color: profileMsg.type === 'success' ? '#16A34A' : '#DC2626',
+                border: profileMsg.type === 'success' ? '1px solid #86EFAC' : '1px solid #FCA5A5'
+              }}>
+                <i data-lucide={profileMsg.type === 'success' ? 'check-circle' : 'alert-circle'} style={{ width: '16px', flexShrink: 0 }}></i>
+                {profileMsg.text}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div className="glass-card" style={{ padding: '20px', marginBottom: '20px', flex: 1 }}><h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '16px' }}>Billing Summary</h3><div className="billing-summary" style={{ marginBottom: '0' }}><div className="billing-row"><span>Consultation Fee</span> <span>₹500.00</span></div><div className="billing-row"><span>Registration Fee</span> <span>₹50.00</span></div><div className="billing-total" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '2px dashed var(--border)' }}><span>Total Amount</span> <span>₹550.00</span></div></div></div>
-                <div><label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '12px', color: '#64748B' }}>Payment Method <span style={{ color: '#EF4444' }}>*</span></label><div className="payment-grid" style={{ marginBottom: '20px' }}>{['UPI', 'Card', 'Banking'].map(method => (<div key={method} className={`pay-btn ${paymentMethod === method ? 'active' : ''}`} onClick={() => setPaymentMethod(method)} style={{ fontSize: '12px', padding: '10px' }}>{paymentMethod === method && <i data-lucide="check-circle" style={{ width: '14px' }}></i>} {method}</div>))}</div></div>
-                <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', height: '48px', fontSize: '15px', background: 'var(--primary-gradient)', boxShadow: '0 8px 16px rgba(59, 113, 254, 0.2)' }} onClick={confirmBooking} disabled={loading}><i data-lucide="lock" style={{ width: '16px' }}></i> {loading ? 'Processing...' : 'Pay ₹550 & Confirm'}</button>
+            )}
+
+            <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px' }}>
+              <div className="glass-card" style={{ padding: '24px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '20px' }}>Personal Information</h3>
+                <form onSubmit={handleUpdateProfile}>
+                  <div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Full Name *</label>
+                      <input type="text" className="form-control" style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '12px', fontSize: '13px', fontWeight: 600 }} value={editProfileData.name} onChange={e => setEditProfileData({...editProfileData, name: e.target.value})} required />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Contact Number *</label>
+                      <input type="text" className="form-control" style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '12px', fontSize: '13px', fontWeight: 600 }} value={editProfileData.contact} onChange={e => setEditProfileData({...editProfileData, contact: e.target.value})} required />
+                    </div>
+                  </div>
+                  <div className="mobile-grid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Age *</label>
+                      <input type="number" className="form-control" style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '12px', fontSize: '13px', fontWeight: 600 }} value={editProfileData.age} onChange={e => setEditProfileData({...editProfileData, age: e.target.value})} required />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Gender *</label>
+                      <select className="form-control" style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '10px', fontSize: '13px', fontWeight: 600, background: 'white' }} value={editProfileData.gender} onChange={e => setEditProfileData({...editProfileData, gender: e.target.value})} required>
+                        <option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Blood Group</label>
+                      <select className="form-control" style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '10px', fontSize: '13px', fontWeight: 600, background: 'white' }} value={editProfileData.bloodGroup} onChange={e => setEditProfileData({...editProfileData, bloodGroup: e.target.value})}>
+                        <option value="O+">O+</option><option value="O-">O-</option><option value="A+">A+</option><option value="A-">A-</option><option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option><option value="AB-">AB-</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Address</label>
+                    <textarea className="form-control" style={{ minHeight: '60px', borderRadius: '8px', border: '1px solid #CBD5E1', padding: '10px 12px', fontSize: '13px', fontWeight: 600 }} value={editProfileData.address} onChange={e => setEditProfileData({...editProfileData, address: e.target.value})} placeholder="Full address"></textarea>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Allergies</label>
+                    <input type="text" className="form-control" placeholder="e.g. Peanuts, Penicillin (Leave empty if none)" style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '12px', fontSize: '13px', fontWeight: 600 }} value={editProfileData.allergies} onChange={e => setEditProfileData({...editProfileData, allergies: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '24px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Medical History (Comma separated)</label>
+                    <input type="text" className="form-control" placeholder="e.g. Asthma, Diabetes" style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '12px', fontSize: '13px', fontWeight: 600 }} value={editProfileData.medicalHistory} onChange={e => setEditProfileData({...editProfileData, medicalHistory: e.target.value})} />
+                  </div>
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '46px', justifyContent: 'center', fontWeight: 800, borderRadius: '8px', background: 'var(--primary-gradient)' }} disabled={isUpdatingProfile}>
+                    {isUpdatingProfile ? 'Saving...' : 'Save Profile Changes'}
+                  </button>
+                </form>
+              </div>
+
+              <div className="glass-card" style={{ padding: '24px', height: 'fit-content' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '20px' }}>Change Password</h3>
+                <form onSubmit={handleUpdatePassword}>
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Current Password *</label>
+                    <input type="password" className="form-control" placeholder="Enter current password" style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '12px', fontSize: '13px', fontWeight: 600 }} value={passwordData.currentPassword} onChange={e => setPasswordData({...passwordData, currentPassword: e.target.value})} required />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>New Password *</label>
+                    <input type="password" className="form-control" placeholder="Enter new password" style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '12px', fontSize: '13px', fontWeight: 600 }} value={passwordData.newPassword} onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})} required />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '24px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Confirm New Password *</label>
+                    <input type="password" className="form-control" placeholder="Re-type new password" style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '12px', fontSize: '13px', fontWeight: 600 }} value={passwordData.confirmPassword} onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})} required />
+                  </div>
+                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', height: '46px', justifyContent: 'center', fontWeight: 800, borderRadius: '8px', background: 'white', border: '1px solid #CBD5E1' }} disabled={isUpdatingPassword}>
+                    {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                  </button>
+                </form>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {activeTab === 'book-appointment' && selectedDoctor && (
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+              <button className="btn btn-secondary" style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setActiveTab('find')}>
+                <i data-lucide="arrow-left" style={{ width: '16px' }}></i> Back to Specialists
+              </button>
+              <h1 style={{ fontSize: '24px', fontWeight: 800, margin: 0 }}>Schedule Appointment & Secure Checkout</h1>
+            </div>
+
+            <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '32px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                
+                {/* Pre-filled Patient Record */}
+                <div className="glass-card" style={{ padding: '28px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3B82F6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>1</div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#1A1D23', margin: 0 }}>Patient Information</h3>
+                    <span className="status-badge available" style={{ marginLeft: 'auto', background: '#F0FDF4', color: '#10B981', fontSize: '11px', fontWeight: 800 }}>✓ Verified Profile</span>
+                  </div>
+                  
+                  <div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                    <div className="form-group">
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Full Name</label>
+                      <input type="text" className="form-control" style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', cursor: 'not-allowed', fontWeight: 700 }} value={patientProfile?.name || user.name || ''} readOnly />
+                    </div>
+                    <div className="form-group">
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Patient ID (UHID)</label>
+                      <input type="text" className="form-control" style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', cursor: 'not-allowed', fontWeight: 700 }} value={patientProfile ? `#MDC-${patientProfile._id.substring(18).toUpperCase()}` : '#MC-9921'} readOnly />
+                    </div>
+                  </div>
+
+                  <div className="mobile-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                    <div className="form-group">
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Gender</label>
+                      <input type="text" className="form-control" style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', cursor: 'not-allowed', fontWeight: 700 }} value={patientProfile?.gender || 'Male'} readOnly />
+                    </div>
+                    <div className="form-group">
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Age</label>
+                      <input type="text" className="form-control" style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', cursor: 'not-allowed', fontWeight: 700 }} value={`${patientProfile?.age || '34'} Yrs`} readOnly />
+                    </div>
+                    <div className="form-group">
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Blood Group</label>
+                      <input type="text" className="form-control" style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', cursor: 'not-allowed', fontWeight: 700 }} value={patientProfile?.bloodGroup || 'O+'} readOnly />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '16px', fontWeight: 600 }}>
+                    <i data-lucide="shield-check" style={{ width: '14px', color: '#10B981' }}></i> DPDP Act Compliant: Details pre-filled securely from registered healthcare records.
+                  </div>
+                </div>
+
+                {/* Visit Details */}
+                <div className="glass-card" style={{ padding: '28px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3B82F6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>2</div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#1A1D23', margin: 0 }}>Consultation Details</h3>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '24px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 800, color: '#1A1D23', marginBottom: '8px', display: 'block' }}>Select Appointment Date <span style={{ color: '#EF4444' }}>*</span></label>
+                    <input type="date" className="form-control" style={{ height: '48px', borderRadius: '10px', fontSize: '14px', fontWeight: 600 }} value={appointmentDate} onChange={e => setAppointmentDate(e.target.value)} required />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '24px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 800, color: '#1A1D23', marginBottom: '12px', display: 'block' }}>Preferred Time Slot <span style={{ color: '#EF4444' }}>*</span></label>
+                    <div className="mobile-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                      {['10:30 AM', '11:00 AM', '02:30 PM'].map(time => (
+                        <div key={time} style={{ padding: '12px', textAlign: 'center', background: appointmentTime === time ? 'var(--primary-light)' : '#F8FAFC', color: appointmentTime === time ? 'var(--primary)' : 'var(--text-muted)', borderRadius: '10px', fontWeight: 800, fontSize: '13px', cursor: 'pointer', border: appointmentTime === time ? '2px solid var(--primary)' : '2px solid transparent', transition: '0.2s' }} onClick={() => setAppointmentTime(time)}>{time}</div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label style={{ fontSize: '13px', fontWeight: 800, color: '#1A1D23', marginBottom: '8px', display: 'block' }}>Reason for Visit / Symptoms</label>
+                    <textarea className="form-control" style={{ minHeight: '100px', fontSize: '13px', borderRadius: '10px', padding: '12px' }} placeholder="Briefly describe your symptoms or medical concern..." value={appointmentReason} onChange={e => setAppointmentReason(e.target.value)}></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                
+                {/* Consulting Specialist Card */}
+                <div className="glass-card" style={{ padding: '24px' }}>
+                  <h4 style={{ fontSize: '12px', fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', margin: '0 0 16px' }}>Consulting Doctor</h4>
+                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                    <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 900 }}>
+                      {selectedDoctor.name ? selectedDoctor.name.substring(0,2).toUpperCase() : 'DR'}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 900, fontSize: '16px', color: '#1A1D23' }}>{selectedDoctor.name}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px' }}>{selectedDoctor.specialty || 'General OPD'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Billing Summary */}
+                <div className="glass-card" style={{ padding: '24px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#1A1D23', marginBottom: '16px' }}>Billing Summary</h3>
+                  <div className="billing-summary" style={{ marginBottom: 0 }}>
+                    <div className="billing-row"><span>Consultation Fee</span> <span>₹500.00</span></div>
+                    <div className="billing-row"><span>Registration Fee</span> <span>₹50.00</span></div>
+                    <div className="billing-total" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '2px dashed var(--border)' }}>
+                      <span>Total Amount</span> <span>₹550.00</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Gateway */}
+                <div className="glass-card" style={{ padding: '24px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, marginBottom: '12px', color: '#1A1D23' }}>Payment Method <span style={{ color: '#EF4444' }}>*</span></label>
+                  <div className="payment-grid" style={{ marginBottom: '20px' }}>
+                    {['UPI', 'Card', 'Banking'].map(method => (
+                      <div key={method} className={`pay-btn ${paymentMethod === method ? 'active' : ''}`} onClick={() => setPaymentMethod(method)} style={{ fontSize: '12px', padding: '10px' }}>
+                        {paymentMethod === method && <i data-lucide="check-circle" style={{ width: '14px' }}></i>} {method}
+                      </div>
+                    ))}
+                  </div>
+                  <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', height: '52px', fontSize: '15px', borderRadius: '12px', background: 'var(--primary-gradient)', boxShadow: '0 8px 16px rgba(59, 113, 254, 0.2)' }} onClick={confirmBooking} disabled={loading}>
+                    <i data-lucide="lock" style={{ width: '16px' }}></i> {loading ? 'Processing...' : 'Pay ₹550 & Confirm'}
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {detailsModalOpen && selectedAppointment && (
         <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={() => setDetailsModalOpen(false)}>
@@ -377,6 +668,7 @@ const PatientDashboard = () => {
         <div className={`mob-nav-item ${activeTab === 'find' ? 'active' : ''}`} onClick={() => setActiveTab('find')}><i data-lucide="search"></i><span>Find Dr</span></div>
         <div className={`mob-nav-item ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}><i data-lucide="calendar"></i><span>Apps</span></div>
         <div className={`mob-nav-item ${activeTab === 'records' ? 'active' : ''}`} onClick={() => setActiveTab('records')}><i data-lucide="file-text"></i><span>Vault</span></div>
+        <div className={`mob-nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}><i data-lucide="user"></i><span>Profile</span></div>
       </div>
     </>
   );

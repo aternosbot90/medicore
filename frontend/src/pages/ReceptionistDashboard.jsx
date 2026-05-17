@@ -12,7 +12,7 @@ const ReceptionistDashboard = () => {
   const [doctors, setDoctors] = useState([]);
   
   const [formData, setFormData] = useState({
-    name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: ''
+    name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: '', bloodGroup: 'O+', address: '', medicalHistory: ''
   });
 
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
@@ -26,6 +26,15 @@ const ReceptionistDashboard = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const [isExistingPatient, setIsExistingPatient] = useState(null); // null = choose mode, true = existing, false = new register
+  const [searchPatientQuery, setSearchPatientQuery] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  
+  // Date range filter states
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const openDetailsModal = (app) => {
     setSelectedAppointment({ ...app });
@@ -71,6 +80,26 @@ const ReceptionistDashboard = () => {
     } catch (err) {
       console.error("Failed to fetch data", err);
     }
+  };
+
+  const getFilteredAppointments = () => {
+    return appointments.filter(app => {
+      if (!app.date) return true;
+      const appDate = new Date(app.date);
+      const appDateOnly = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
+
+      if (startDate) {
+        const start = new Date(startDate);
+        const startOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        if (appDateOnly < startOnly) return false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        const endOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        if (appDateOnly > endOnly) return false;
+      }
+      return true;
+    });
   };
 
   useEffect(() => {
@@ -124,7 +153,7 @@ const ReceptionistDashboard = () => {
     if (window.lucide) {
       window.lucide.createIcons();
     }
-  }, [activeTab, selectedSymptoms]);
+  }, [activeTab, selectedSymptoms, showProfileMenu, showDateFilter]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -134,6 +163,12 @@ const ReceptionistDashboard = () => {
 
   const switchTab = (tabId) => {
     setActiveTab(tabId);
+    if (tabId === 'registration-form') {
+      setIsExistingPatient(null);
+      setSelectedPatient(null);
+      setSearchPatientQuery('');
+      setFormData({ name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: '', bloodGroup: 'O+', address: '', medicalHistory: '' });
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -154,13 +189,37 @@ const ReceptionistDashboard = () => {
   const handleCreateAppointment = async () => {
     try {
       setLoading(true);
-      const patientRes = await api.post('/patients', {
-        name: formData.name,
-        age: parseInt(formData.age) || 30,
-        gender: formData.gender,
-        contact: formData.contact || '+91 0000000000'
-      });
-      const patientId = patientRes.data._id;
+      
+      let patientId = null;
+
+      if (isExistingPatient && selectedPatient) {
+        patientId = selectedPatient._id;
+      } else {
+        // Collect full details for new registration
+        if (!formData.name || !formData.age || !formData.contact) {
+          alert("Please fill in Name, Age, and Contact Number for the new patient.");
+          setLoading(false);
+          return;
+        }
+
+        const patientRes = await api.post('/patients', {
+          name: formData.name,
+          age: parseInt(formData.age) || 30,
+          gender: formData.gender,
+          contact: formData.contact,
+          email: formData.email || '',
+          bloodGroup: formData.bloodGroup || 'O+',
+          address: formData.address || '',
+          medicalHistory: formData.medicalHistory ? formData.medicalHistory.split(',').map(item => item.trim()) : []
+        });
+        patientId = patientRes.data._id;
+      }
+
+      if (!patientId) {
+        alert("Failed to resolve Patient ID. Please select or register a patient.");
+        setLoading(false);
+        return;
+      }
 
       await api.post('/appointments', {
         patientId,
@@ -180,9 +239,12 @@ const ReceptionistDashboard = () => {
         paymentMethod: paymentMethod
       });
 
-      alert("Appointment created successfully!");
-      setFormData({ name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: '' });
+      alert("Appointment booked successfully!");
+      setFormData({ name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: '', bloodGroup: 'O+', address: '', medicalHistory: '' });
       setSelectedSymptoms([]);
+      setIsExistingPatient(null);
+      setSearchPatientQuery('');
+      setSelectedPatient(null);
       fetchData();
       switchTab('appointments');
     } catch (err) {
@@ -219,10 +281,18 @@ const ReceptionistDashboard = () => {
       </div>
 
       <div className="top-nav">
-        <div style={{ flex: 1, maxWidth: '400px', position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <i data-lucide="search" style={{ position: 'absolute', left: '16px', color: '#64748B', width: '16px' }}></i>
-          <input type="text" className="search-input" placeholder="Search..." style={{ background: '#F8FAFC', border: 'none', paddingLeft: '44px', height: '40px', width: '100%', borderRadius: '10px', fontSize: '13px', fontWeight: 600 }} />
-          <span className="desktop-only-flex" style={{ position: 'absolute', right: '12px', fontSize: '10px', fontWeight: 700, color: '#94A3B8', background: 'white', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0', pointerEvents: 'none' }}>Ctrl + K</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, maxWidth: '560px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <span style={{ fontSize: '17px', fontWeight: 950, color: 'var(--primary)', letterSpacing: '-0.5px' }}>MediCore</span>
+            <span style={{ fontSize: '10px', background: 'var(--primary-light)', color: 'var(--primary)', padding: '3px 8px', borderRadius: '99px', fontWeight: 700 }} className="desktop-only-inline">
+              Front Desk
+            </span>
+          </div>
+          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <i data-lucide="search" style={{ position: 'absolute', left: '16px', color: '#64748B', width: '16px' }}></i>
+            <input type="text" className="search-input" placeholder="Search..." style={{ background: '#F8FAFC', border: 'none', paddingLeft: '44px', height: '40px', width: '100%', borderRadius: '10px', fontSize: '13px', fontWeight: 600 }} />
+            <span className="desktop-only-flex" style={{ position: 'absolute', right: '12px', fontSize: '10px', fontWeight: 700, color: '#94A3B8', background: 'white', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0', pointerEvents: 'none' }}>Ctrl + K</span>
+          </div>
         </div>
         
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginLeft: 'auto', flexShrink: 0 }}>
@@ -569,143 +639,534 @@ const ReceptionistDashboard = () => {
         {/* REGISTRATION FORM TAB */}
         {activeTab === 'registration-form' && (
            <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-              <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1D23', marginBottom: '32px' }}>Registration and appointment</h1>
-              
-              <div className="glass-card" style={{ padding: '40px', marginBottom: '40px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3B82F6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>1</div>
-                    <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1A1D23' }}>Patient Information</h2>
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
-                    <div className="form-group">
-                        <label>Full Name <span style={{ color: '#EF4444' }}>*</span></label>
-                        <input type="text" className="form-control" placeholder="Enter full name" style={{ height: '48px', borderRadius: '8px' }} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                    </div>
-                    <div className="form-group">
-                        <label>Gender <span style={{ color: '#EF4444' }}>*</span></label>
-                        <select className="form-control" style={{ height: '48px', borderRadius: '8px' }} value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})}>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>Age <span style={{ color: '#EF4444' }}>*</span></label>
-                        <input type="number" className="form-control" placeholder="Age" style={{ height: '48px', borderRadius: '8px' }} value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} />
-                    </div>
-                    <div className="form-group">
-                        <label>Mobile Number <span style={{ color: '#EF4444' }}>*</span></label>
-                        <input type="text" className="form-control" placeholder="Enter Mobile Number" style={{ height: '48px', borderRadius: '8px' }} value={formData.contact} onChange={e => setFormData({...formData, contact: e.target.value})} />
-                    </div>
-                    <div className="form-group">
-                        <label>Email <span style={{ color: '#EF4444' }}>*</span></label>
-                        <div style={{ position: 'relative' }}>
-                            <i data-lucide="mail" style={{ position: 'absolute', left: '16px', top: '14px', color: '#CBD5E1', width: '18px' }}></i>
-                            <input type="text" className="form-control" placeholder="Enter Email" style={{ height: '48px', borderRadius: '8px', paddingLeft: '48px' }} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                        </div>
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3B82F6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>2</div>
-                    <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1A1D23' }}>Visit & Appointment Details</h2>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-                    <div className="form-group">
-                        <label>Symptoms <span style={{ color: '#EF4444' }}>*</span></label>
-                        <div className="custom-dropdown-container">
-                            <div className="custom-dropdown-trigger" onClick={() => setSymptomDropdownOpen(!symptomDropdownOpen)}>
-                                <div className="selected-items">
-                                    {selectedSymptoms.length > 0 ? (
-                                        selectedSymptoms.map(s => (
-                                          <div key={s} className="symptom-tag">
-                                              {s}
-                                              <i data-lucide="x" onClick={(e) => { e.stopPropagation(); toggleSymptom(s); }}></i>
-                                          </div>
-                                        ))
-                                    ) : (
-                                        <span style={{ color: '#94A3B8', fontWeight: 500 }}>Select symptoms</span>
-                                    )}
-                                </div>
-                                <i data-lucide="chevron-down" style={{ width: '18px', color: '#94A3B8', transition: '0.3s', transform: symptomDropdownOpen ? 'rotate(180deg)' : 'none' }}></i>
-                            </div>
-                            {symptomDropdownOpen && (
-                                <div className="dropdown-options-box show">
-                                    {availableSymptoms.map(s => (
-                                        <div key={s} className="option-item" onClick={() => toggleSymptom(s)}>{s}</div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="form-group">
-                        <label>Select Doctor <span style={{ color: '#EF4444' }}>*</span></label>
-                        <select className="form-control" style={{ height: '48px', borderRadius: '8px' }} value={formData.doctorId} onChange={e => setFormData({...formData, doctorId: e.target.value})}>
-                            <option value="">-- Choose Doctor --</option>
-                            {doctors.map(doc => (
-                                <option key={doc._id} value={doc._id}>{doc.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-
-                <div style={{ marginBottom: '48px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '12px', color: '#64748B' }}>Select Slot / Queue</label>
-                    <div className="time-grid">
-                        {['10:00 AM', '10:15 AM', '10:30 AM', '10:45 AM', '11:00 AM'].map(time => (
-                            <div key={time} className={`time-chip ${selectedSlot === time ? 'selected' : 'available'}`} onClick={() => setSelectedSlot(time)}>
-                                <div style={{ fontSize: '13px', fontWeight: 700 }}>{time}</div>
-                                <div style={{ fontSize: '10px', fontWeight: 600 }}>{selectedSlot === time ? 'Selected' : 'Available'}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3B82F6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>3</div>
-                    <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1A1D23' }}>Billing & Payment</h2>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '40px', marginBottom: '48px' }}>
-                    <div className="billing-summary">
-                        <div className="billing-row"><span>Consultation Fee</span> <span>₹500.00</span></div>
-                        <div className="billing-row"><span>Registration Fee</span> <span>₹50.00</span></div>
-                        <div className="billing-total"><span>Total Amount</span> <span>₹550.00</span></div>
-                    </div>
-                    
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '12px', color: '#64748B' }}>Payment Method <span style={{ color: '#EF4444' }}>*</span></label>
-                        <div className="payment-grid" style={{ marginBottom: '24px' }}>
-                            {['Cash', 'UPI', 'Card', 'Insurance', 'Other'].map(method => (
-                                <div key={method} className={`pay-btn ${paymentMethod === method ? 'active' : ''}`} onClick={() => setPaymentMethod(method)}>
-                                    {paymentMethod === method && <i data-lucide="check-circle"></i>} {method}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
-                    <div style={{ display: 'flex', gap: '12px', flex: 1 }}>
-                        <button className="btn btn-secondary" style={{ height: '54px', flex: 1, justifyContent: 'center', fontWeight: 700, borderRadius: '10px' }}>Save as Draft</button>
-                    </div>
-                    <button className="btn btn-primary" style={{ width: '400px', height: '54px', fontWeight: 800, fontSize: '16px', borderRadius: '10px', justifyContent: 'center', gap: '12px' }} onClick={handleCreateAppointment} disabled={loading}>
-                        <i data-lucide="qr-code"></i> {loading ? 'Processing...' : 'Confirm & Generate Token'}
-                    </button>
-                </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1D23', margin: 0 }}>Registration and appointment</h1>
+                {isExistingPatient !== null && (
+                  <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12px' }} onClick={() => {
+                    setIsExistingPatient(null);
+                    setSelectedPatient(null);
+                    setFormData({ name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: formData.doctorId, bloodGroup: 'O+', address: '', medicalHistory: '' });
+                  }}>
+                    ← Back to Selection
+                  </button>
+                )}
               </div>
+
+              {isExistingPatient === null ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '380px', marginBottom: '40px' }}>
+                  <div className="glass-card" style={{ width: '560px', padding: '40px', borderRadius: '16px', background: 'white', border: '1px solid #E2E8F0', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.05)' }}>
+                    
+                    {/* Header: User Icon + Title + Subtitle */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '28px' }}>
+                      <div style={{ 
+                        width: '52px', 
+                        height: '52px', 
+                        borderRadius: '50%', 
+                        background: '#EFF6FF', 
+                        color: '#3B82F6', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        <i data-lucide="user" style={{ width: '26px', height: '26px' }}></i>
+                      </div>
+                      <div>
+                        <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', margin: '0 0 4px 0', fontFamily: "'Inter', sans-serif" }}>Registered Patient</h2>
+                        <p style={{ fontSize: '13px', color: '#64748B', margin: 0, fontWeight: 500, lineHeight: '1.4' }}>
+                          Search and select an existing patient to book an appointment.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Search Field with magnifying glass on the right */}
+                    <div style={{ position: 'relative', marginBottom: '20px' }}>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="Search by Patient ID or Phone Number" 
+                        style={{ 
+                          height: '52px', 
+                          paddingRight: '48px', 
+                          paddingLeft: '16px',
+                          borderRadius: '10px', 
+                          fontSize: '14px', 
+                          fontWeight: 600,
+                          border: '1px solid #CBD5E1',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                        value={searchPatientQuery}
+                        onChange={e => setSearchPatientQuery(e.target.value)}
+                      />
+                      <i data-lucide="search" style={{ position: 'absolute', right: '16px', top: '16px', color: '#94A3B8', width: '20px', height: '20px' }}></i>
+                    </div>
+
+                    {/* Search Autocomplete List */}
+                    {searchPatientQuery.trim().length > 0 && (
+                      <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '10px', background: '#F8FAFC', marginBottom: '20px' }}>
+                        {patientsList.filter(p => {
+                          const q = searchPatientQuery.toLowerCase();
+                          return p.name.toLowerCase().includes(q) || p.contact.toLowerCase().includes(q) || p._id.toLowerCase().includes(q);
+                        }).length === 0 ? (
+                          <div style={{ padding: '16px', textAlign: 'center', color: '#64748B', fontSize: '13px', fontWeight: 600 }}>
+                            No matching patients found.
+                          </div>
+                        ) : (
+                          patientsList.filter(p => {
+                            const q = searchPatientQuery.toLowerCase();
+                            return p.name.toLowerCase().includes(q) || p.contact.toLowerCase().includes(q) || p._id.toLowerCase().includes(q);
+                          }).map(p => (
+                            <div 
+                              key={p._id} 
+                              style={{ padding: '12px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: '0.2s' }}
+                              onClick={() => {
+                                setSelectedPatient(p);
+                                setFormData({
+                                  name: p.name,
+                                  age: p.age,
+                                  gender: p.gender,
+                                  contact: p.contact,
+                                  email: p.email || '',
+                                  bloodGroup: p.bloodGroup || 'O+',
+                                  address: p.address || '',
+                                  medicalHistory: p.medicalHistory ? p.medicalHistory.join(', ') : '',
+                                  doctorId: formData.doctorId
+                                });
+                                setIsExistingPatient(true);
+                              }}
+                              className="patient-search-row"
+                            >
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: '13px', color: '#1A1D23' }}>{p.name}</div>
+                                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
+                                  #{p._id.substring(18).toUpperCase()} • {p.gender} • {p.age} Yrs
+                                </div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)' }}>{p.contact}</div>
+                                <span style={{ fontSize: '10px', background: '#EFF6FF', color: 'var(--primary)', padding: '2px 8px', borderRadius: '4px', fontWeight: 800, display: 'inline-block', marginTop: '4px' }}>Select</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{ width: '100%', height: '1px', background: '#F1F5F9', marginBottom: '20px' }}></div>
+
+                    {/* Register New Patient green border button */}
+                    <button 
+                      className="btn" 
+                      style={{ 
+                        width: '100%', 
+                        height: '52px', 
+                        fontWeight: 800, 
+                        borderRadius: '10px', 
+                        border: '2px solid #10B981', 
+                        background: 'transparent',
+                        color: '#10B981',
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        alignItems: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        padding: '0 20px',
+                        boxSizing: 'border-box',
+                        transition: 'all 0.2s ease-in-out'
+                      }}
+                      onClick={() => {
+                        setSelectedPatient(null);
+                        setFormData({ name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: formData.doctorId, bloodGroup: 'O+', address: '', medicalHistory: '' });
+                        setIsExistingPatient(false);
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#F0FDF4';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      Register New Patient
+                      <i data-lucide="chevron-right" style={{ width: '18px', height: '18px', marginLeft: 'auto', strokeWidth: 3 }}></i>
+                    </button>
+
+                  </div>
+                </div>
+              ) : (
+                <div className="glass-card" style={{ padding: '40px', marginBottom: '40px' }}>
+                  
+                  {/* Status Banner */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', background: isExistingPatient ? '#EFF6FF' : '#F0FDF4', border: isExistingPatient ? '1px solid #BFDBFE' : '1px solid #BBF7D0', borderRadius: '12px', marginBottom: '36px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: isExistingPatient ? '#3B82F6' : '#10B981', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i data-lucide={isExistingPatient ? "check" : "edit-3"} style={{ width: '16px' }}></i>
+                      </div>
+                      <div>
+                        {isExistingPatient ? (
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: '#1E40AF' }}>
+                            Booking Appointment for Registered Patient: <b style={{ textDecoration: 'underline' }}>{selectedPatient?.name}</b> (ID: #{selectedPatient?._id?.substring(18).toUpperCase()})
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: '#166534' }}>
+                            📝 Registering a New First-Time Patient Profile
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button 
+                      className="btn" 
+                      style={{ fontSize: '11px', fontWeight: 800, padding: '6px 12px', background: 'white', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer' }}
+                      onClick={() => {
+                        setIsExistingPatient(null);
+                        setSelectedPatient(null);
+                        setFormData({ name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: formData.doctorId, bloodGroup: 'O+', address: '', medicalHistory: '' });
+                      }}
+                    >
+                      Change Mode
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3B82F6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>1</div>
+                      <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1A1D23', margin: 0 }}>Patient Information</h2>
+                  </div>
+                  
+                  {/* Expanded Fields Form */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
+                      <div className="form-group">
+                          <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Full Name <span style={{ color: '#EF4444' }}>*</span></label>
+                          <input 
+                            type="text" 
+                            className="form-control" 
+                            placeholder="Enter full name" 
+                            style={{ height: '48px', borderRadius: '8px', background: isExistingPatient ? '#F1F5F9' : 'white', cursor: isExistingPatient ? 'not-allowed' : 'text', fontWeight: isExistingPatient ? 700 : 500 }} 
+                            value={formData.name} 
+                            onChange={e => setFormData({...formData, name: e.target.value})} 
+                            readOnly={isExistingPatient} 
+                          />
+                      </div>
+                      <div className="form-group">
+                          <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Gender <span style={{ color: '#EF4444' }}>*</span></label>
+                          <select 
+                            className="form-control" 
+                            style={{ height: '48px', borderRadius: '8px', background: isExistingPatient ? '#F1F5F9' : 'white', cursor: isExistingPatient ? 'not-allowed' : 'pointer', fontWeight: isExistingPatient ? 700 : 500 }} 
+                            value={formData.gender} 
+                            onChange={e => setFormData({...formData, gender: e.target.value})} 
+                            disabled={isExistingPatient}
+                          >
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                              <option value="Other">Other</option>
+                          </select>
+                      </div>
+                      <div className="form-group">
+                          <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Age <span style={{ color: '#EF4444' }}>*</span></label>
+                          <input 
+                            type="number" 
+                            className="form-control" 
+                            placeholder="Age" 
+                            style={{ height: '48px', borderRadius: '8px', background: isExistingPatient ? '#F1F5F9' : 'white', cursor: isExistingPatient ? 'not-allowed' : 'text', fontWeight: isExistingPatient ? 700 : 500 }} 
+                            value={formData.age} 
+                            onChange={e => setFormData({...formData, age: e.target.value})} 
+                            readOnly={isExistingPatient}
+                          />
+                      </div>
+                      <div className="form-group">
+                          <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Mobile Number <span style={{ color: '#EF4444' }}>*</span></label>
+                          <input 
+                            type="text" 
+                            className="form-control" 
+                            placeholder="Enter Mobile Number" 
+                            style={{ height: '48px', borderRadius: '8px', background: isExistingPatient ? '#F1F5F9' : 'white', cursor: isExistingPatient ? 'not-allowed' : 'text', fontWeight: isExistingPatient ? 700 : 500 }} 
+                            value={formData.contact} 
+                            onChange={e => setFormData({...formData, contact: e.target.value})} 
+                            readOnly={isExistingPatient}
+                          />
+                      </div>
+                      <div className="form-group">
+                          <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Email</label>
+                          <input 
+                            type="text" 
+                            className="form-control" 
+                            placeholder="Enter Email" 
+                            style={{ height: '48px', borderRadius: '8px', background: isExistingPatient ? '#F1F5F9' : 'white', cursor: isExistingPatient ? 'not-allowed' : 'text', fontWeight: isExistingPatient ? 700 : 500 }} 
+                            value={formData.email} 
+                            onChange={e => setFormData({...formData, email: e.target.value})} 
+                            readOnly={isExistingPatient}
+                          />
+                      </div>
+                      <div className="form-group">
+                          <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Blood Group</label>
+                          <select 
+                            className="form-control" 
+                            style={{ height: '48px', borderRadius: '8px', background: isExistingPatient ? '#F1F5F9' : 'white', cursor: isExistingPatient ? 'not-allowed' : 'pointer', fontWeight: isExistingPatient ? 700 : 500 }} 
+                            value={formData.bloodGroup} 
+                            onChange={e => setFormData({...formData, bloodGroup: e.target.value})} 
+                            disabled={isExistingPatient}
+                          >
+                              <option value="O+">O +ve</option>
+                              <option value="O-">O -ve</option>
+                              <option value="A+">A +ve</option>
+                              <option value="A-">A -ve</option>
+                              <option value="B+">B +ve</option>
+                              <option value="B-">B -ve</option>
+                              <option value="AB+">AB +ve</option>
+                              <option value="AB-">AB -ve</option>
+                          </select>
+                      </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '40px' }}>
+                    <div className="form-group">
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Residential Address</label>
+                      <textarea 
+                        className="form-control" 
+                        placeholder="Enter full address details..." 
+                        style={{ minHeight: '80px', borderRadius: '8px', background: isExistingPatient ? '#F1F5F9' : 'white', cursor: isExistingPatient ? 'not-allowed' : 'text', fontWeight: isExistingPatient ? 700 : 500, padding: '12px' }} 
+                        value={formData.address}
+                        onChange={e => setFormData({...formData, address: e.target.value})}
+                        readOnly={isExistingPatient}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Allergies & Medical History (Comma Separated)</label>
+                      <textarea 
+                        className="form-control" 
+                        placeholder="Hypertension, Penicillin Allergy, etc..." 
+                        style={{ minHeight: '80px', borderRadius: '8px', background: isExistingPatient ? '#F1F5F9' : 'white', cursor: isExistingPatient ? 'not-allowed' : 'text', fontWeight: isExistingPatient ? 700 : 500, padding: '12px' }} 
+                        value={formData.medicalHistory}
+                        onChange={e => setFormData({...formData, medicalHistory: e.target.value})}
+                        readOnly={isExistingPatient}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3B82F6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>2</div>
+                      <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1A1D23', margin: 0 }}>Visit & Appointment Details</h2>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                      <div className="form-group">
+                          <label>Symptoms <span style={{ color: '#EF4444' }}>*</span></label>
+                          <div className="custom-dropdown-container">
+                              <div className="custom-dropdown-trigger" onClick={() => setSymptomDropdownOpen(!symptomDropdownOpen)}>
+                                  <div className="selected-items">
+                                      {selectedSymptoms.length > 0 ? (
+                                          selectedSymptoms.map(s => (
+                                            <div key={s} className="symptom-tag">
+                                                {s}
+                                                <i data-lucide="x" onClick={(e) => { e.stopPropagation(); toggleSymptom(s); }}></i>
+                                            </div>
+                                          ))
+                                      ) : (
+                                          <span style={{ color: '#94A3B8', fontWeight: 500 }}>Select symptoms</span>
+                                      )}
+                                  </div>
+                                  <i data-lucide="chevron-down" style={{ width: '18px', color: '#94A3B8', transition: '0.3s', transform: symptomDropdownOpen ? 'rotate(180deg)' : 'none' }}></i>
+                              </div>
+                              {symptomDropdownOpen && (
+                                  <div className="dropdown-options-box show">
+                                      {availableSymptoms.map(s => (
+                                          <div key={s} className="option-item" onClick={() => toggleSymptom(s)}>{s}</div>
+                                      ))}
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+                      <div className="form-group">
+                          <label>Select Doctor <span style={{ color: '#EF4444' }}>*</span></label>
+                          <select className="form-control" style={{ height: '48px', borderRadius: '8px' }} value={formData.doctorId} onChange={e => setFormData({...formData, doctorId: e.target.value})}>
+                              <option value="">-- Choose Doctor --</option>
+                              {doctors.map(doc => (
+                                  <option key={doc._id} value={doc._id}>{doc.name}</option>
+                              ))}
+                          </select>
+                      </div>
+                  </div>
+
+                  <div style={{ marginBottom: '48px' }}>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '12px', color: '#64748B' }}>Select Slot / Queue</label>
+                      <div className="time-grid">
+                          {['10:00 AM', '10:15 AM', '10:30 AM', '10:45 AM', '11:00 AM'].map(time => (
+                              <div key={time} className={`time-chip ${selectedSlot === time ? 'selected' : 'available'}`} onClick={() => setSelectedSlot(time)}>
+                                  <div style={{ fontSize: '13px', fontWeight: 700 }}>{time}</div>
+                                  <div style={{ fontSize: '10px', fontWeight: 600 }}>{selectedSlot === time ? 'Selected' : 'Available'}</div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3B82F6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>3</div>
+                      <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1A1D23', margin: 0 }}>Billing & Payment</h2>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '40px', marginBottom: '48px' }}>
+                      <div className="billing-summary">
+                          <div className="billing-row"><span>Consultation Fee</span> <span>₹500.00</span></div>
+                          <div className="billing-row"><span>Registration Fee</span> <span>₹50.00</span></div>
+                          <div className="billing-total"><span>Total Amount</span> <span>₹550.00</span></div>
+                      </div>
+                      
+                      <div>
+                          <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '12px', color: '#64748B' }}>Payment Method <span style={{ color: '#EF4444' }}>*</span></label>
+                          <div className="payment-grid" style={{ marginBottom: '24px' }}>
+                              {['Cash', 'UPI', 'Card', 'Insurance', 'Other'].map(method => (
+                                  <div key={method} className={`pay-btn ${paymentMethod === method ? 'active' : ''}`} onClick={() => setPaymentMethod(method)}>
+                                      {paymentMethod === method && <i data-lucide="check-circle"></i>} {method}
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
+                      <div style={{ display: 'flex', gap: '12px', flex: 1 }}>
+                          <button className="btn btn-secondary" style={{ height: '54px', flex: 1, justifyContent: 'center', fontWeight: 700, borderRadius: '10px' }}>Save as Draft</button>
+                      </div>
+                      <button className="btn btn-primary" style={{ width: '400px', height: '54px', fontWeight: 800, fontSize: '16px', borderRadius: '10px', justifyContent: 'center', gap: '12px' }} onClick={handleCreateAppointment} disabled={loading}>
+                          <i data-lucide="qr-code"></i> {loading ? 'Processing...' : 'Confirm & Generate Token'}
+                      </button>
+                  </div>
+                </div>
+              )}
            </div>
         )}
+
 
         {/* APPOINTMENTS TAB */}
         {activeTab === 'appointments' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
+            
+            {/* Header: Title + Button Group */}
             <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1A1D23' }}>Appointments</h2>
-              <button className="btn btn-primary" onClick={() => switchTab('registration-form')}>Create Appointment</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button 
+                  className="btn btn-primary" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '48px', padding: '0 20px', borderRadius: '10px', fontWeight: 700 }} 
+                  onClick={() => switchTab('registration-form')}
+                >
+                  <i data-lucide="plus" style={{ width: '18px', height: '18px' }}></i> Create Appointment
+                </button>
+                <button 
+                  className="btn" 
+                  style={{ 
+                    width: '48px', 
+                    height: '48px', 
+                    borderRadius: '10px', 
+                    background: showDateFilter ? 'rgba(59, 130, 246, 0.15)' : '#DDE3EA', 
+                    color: '#2563EB', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+                  }}
+                  onClick={() => {
+                    setShowDateFilter(!showDateFilter);
+                    setTimeout(() => window.lucide && window.lucide.createIcons(), 100);
+                  }}
+                  title="Filter appointments by date"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                </button>
+              </div>
             </div>
+
+            {/* Sliding Date Range Filter Panel */}
+            {showDateFilter && (
+              <div className="glass-card" style={{ padding: '24px', marginBottom: '24px', animation: 'slideDown 0.3s ease-out', border: '1px solid #BFDBFE', background: '#F8FAFC' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#1E293B', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <i data-lucide="calendar-days" style={{ width: '18px', color: 'var(--primary)' }}></i> Select Appointment Date Range
+                  </h4>
+                  {(startDate || endDate) && (
+                    <button 
+                      className="btn" 
+                      style={{ fontSize: '12px', padding: '4px 10px', background: 'transparent', color: '#EF4444', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+                      onClick={() => { setStartDate(''); setEndDate(''); }}
+                    >
+                      Clear Filter
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <div className="form-group" style={{ margin: 0, flex: 1, minWidth: '180px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', marginBottom: '6px', display: 'block', textTransform: 'uppercase' }}>From Date</label>
+                    <input 
+                      type="date" 
+                      className="form-control" 
+                      style={{ height: '40px', borderRadius: '8px', border: '1px solid #CBD5E1', padding: '0 12px' }} 
+                      value={startDate} 
+                      onChange={e => setStartDate(e.target.value)} 
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0, flex: 1, minWidth: '180px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', marginBottom: '6px', display: 'block', textTransform: 'uppercase' }}>To Date</label>
+                    <input 
+                      type="date" 
+                      className="form-control" 
+                      style={{ height: '40px', borderRadius: '8px', border: '1px solid #CBD5E1', padding: '0 12px' }} 
+                      value={endDate} 
+                      onChange={e => setEndDate(e.target.value)} 
+                    />
+                  </div>
+
+                  {/* Preset Shortcuts */}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ height: '40px', fontSize: '12px', fontWeight: 700, padding: '0 16px', borderRadius: '8px', border: '1px solid #E2E8F0', background: 'white' }} 
+                      onClick={() => {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        setStartDate(todayStr);
+                        setEndDate(todayStr);
+                      }}
+                    >
+                      Today
+                    </button>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ height: '40px', fontSize: '12px', fontWeight: 700, padding: '0 16px', borderRadius: '8px', border: '1px solid #E2E8F0', background: 'white' }} 
+                      onClick={() => {
+                        const today = new Date();
+                        const past7 = new Date();
+                        past7.setDate(today.getDate() - 7);
+                        setStartDate(past7.toISOString().split('T')[0]);
+                        setEndDate(today.toISOString().split('T')[0]);
+                      }}
+                    >
+                      Last 7 Days
+                    </button>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ height: '40px', fontSize: '12px', fontWeight: 700, padding: '0 16px', borderRadius: '8px', border: '1px solid #E2E8F0', background: 'white' }} 
+                      onClick={() => {
+                        const today = new Date();
+                        const past30 = new Date();
+                        past30.setDate(today.getDate() - 30);
+                        setStartDate(past30.toISOString().split('T')[0]);
+                        setEndDate(today.toISOString().split('T')[0]);
+                      }}
+                    >
+                      Last 30 Days
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter matches info */}
+                <div style={{ marginTop: '14px', fontSize: '12px', color: '#475569', fontWeight: 600 }}>
+                  Found <span style={{ color: 'var(--primary)', fontWeight: 800 }}>{getFilteredAppointments().length}</span> matching appointments.
+                </div>
+              </div>
+            )}
+
             <div className="glass-card" style={{ padding: '24px' }}>
               <div className="table-responsive">
                 <table className="elite-table" style={{ margin: 0 }}>
@@ -719,7 +1180,7 @@ const ReceptionistDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {appointments.map(app => (
+                    {getFilteredAppointments().map(app => (
                       <tr key={app._id || app.id}>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -735,6 +1196,13 @@ const ReceptionistDashboard = () => {
                         <td><button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => openDetailsModal(app)}>View Details</button></td>
                       </tr>
                     ))}
+                    {getFilteredAppointments().length === 0 && (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#64748B', fontWeight: 600 }}>
+                          No appointments found for the selected range.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

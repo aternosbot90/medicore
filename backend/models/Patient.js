@@ -7,6 +7,7 @@ const patientSchema = new mongoose.Schema({
   contact: { type: String, required: true },
   address: { type: String },
   bloodGroup: { type: String },
+  allergies: { type: String, default: 'None' },
   medicalHistory: [{ type: String }],
 }, { timestamps: true });
 

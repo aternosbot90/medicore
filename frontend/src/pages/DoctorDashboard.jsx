@@ -58,18 +58,8 @@ const DoctorDashboard = () => {
   const searchContainerRef = useRef(null);
   const [pastPrescriptions, setPastPrescriptions] = useState([]);
 
-  // Mock Pharmacy Inventory for real-time stock alerts
-  const pharmacyInventoryDb = [
-    { name: "Paracetamol 650mg", stock: 250 },
-    { name: "Azithromycin 500mg", stock: 0 },
-    { name: "Cetirizine 10mg", stock: 12 },
-    { name: "Pantoprazole 40mg", stock: 145 },
-    { name: "Amoxicillin 250mg", stock: 50 },
-    { name: "Ibuprofen 400mg", stock: 0 },
-    { name: "Amlodipine 5mg", stock: 100 },
-    { name: "Telmisartan 40mg", stock: 0 },
-    { name: "Cough Syrup", stock: 10 }
-  ];
+  // Real-time dynamic stock alerts from database inventory
+  const [pharmacyInventoryDb, setPharmacyInventoryDb] = useState([]);
 
   const getStockStatus = (medName) => {
     if (!medName || medName.length < 3) return null;
@@ -288,6 +278,12 @@ const DoctorDashboard = () => {
       });
 
       setPatients(combined);
+      try {
+        const meds = await api.get('/medicines');
+        setPharmacyInventoryDb(meds.data);
+      } catch (medErr) {
+        console.warn("Failed to load pharmacy inventory for doctor's alerts", medErr);
+      }
       addLog(`Loaded ${formattedRealPatients.length} real patient EMR records & synchronized diagnostic grids.`);
     } catch (err) {
       console.error('Failed to load dashboard data', err);
@@ -740,7 +736,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
     } catch (e) {
       console.warn("Lucide icons failed to render safely", e);
     }
-  }, [activeTab, selectedPatient, showDropdown, showProfileMenu, uploadedFiles, previewFile, aiChat, isUploading, medicines]);
+  }, [activeTab, selectedPatient, showDropdown, showProfileMenu, uploadedFiles, previewFile, aiChat, isUploading, medicines, showDiagSuggestions, showTimelineModal, showPdf]);
 
   return (
     <ErrorBoundary>

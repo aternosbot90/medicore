@@ -1222,6 +1222,9 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
         grid-template-columns: 1fr !important;
         gap: 20px !important;
     }
+    .mobile-stack > * {
+        min-width: 0 !important;
+    }
 }
 
 .table-responsive {
@@ -1387,6 +1390,17 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
     .glass-card {
         min-width: 0 !important;
         max-width: 100% !important;
+    }
+}
+
+/* DESKTOP ONLY INLINE DISPLAY HELPERS */
+.desktop-only-inline {
+    display: inline-block !important;
+}
+
+@media (max-width: 1024px) {
+    .desktop-only-inline {
+        display: none !important;
     }
 }
 

@@ -6,20 +6,100 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('analytics');
   const [staff, setStaff] = useState([]);
   const [newStaff, setNewStaff] = useState({ staff_id: '', password: '', role: 'doctor', name: '', max_slots: 10 });
+  
+  // Hospital-wide Supply Chain Alerts state
+  const [inventoryAlerts, setInventoryAlerts] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+  const [selectedStaffToRevoke, setSelectedStaffToRevoke] = useState(null);
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
+  const inputStyle = {
+    width: '100%',
+    height: '48px',
+    background: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+    borderRadius: '12px',
+    padding: '0 16px',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#1E293B',
+    boxSizing: 'border-box',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '13px',
+    fontWeight: 800,
+    color: '#475569',
+    marginBottom: '8px',
+    fontFamily: "'Outfit', sans-serif"
+  };
+
+  const btnStyle = {
+    width: '100%',
+    height: '48px',
+    background: '#2563EB',
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: '24px',
+    transition: 'all 0.2s ease',
+  };
+
   useEffect(() => {
     fetchStaff();
+    fetchInventoryAlerts();
     if (window.lucide) {
       window.lucide.createIcons();
     }
-  }, [activeTab, showProfileMenu, showAddStaffModal]);
+  }, [activeTab, showProfileMenu, showAddStaffModal, showRevokeConfirm]);
+
+  const fetchInventoryAlerts = async () => {
+    try {
+      const response = await api.get('/admin/inventory-alerts');
+      setInventoryAlerts(response.data);
+    } catch (err) {
+      console.error('Failed to load inventory alerts', err);
+    }
+  };
+
+  const handleAdminRestock = async (alertItem) => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      if (alertItem.department === 'Pharmacy') {
+        const currentQty = alertItem.rawItem.stock || 0;
+        await api.put(`/medicines/${alertItem._id}`, { stock: currentQty + 100 });
+      } else {
+        await api.put(`/lab-inventory/${alertItem._id}`, { isRestock: true, addQty: 100 });
+      }
+      setSuccess(`Successfully replenished stock for ${alertItem.name}!`);
+      fetchInventoryAlerts();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to replenish stock');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchStaff = async () => {
     try {
@@ -56,13 +136,21 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteStaff = async (id) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      try {
-        await api.delete(`/admin/users/${id}`);
-        fetchStaff();
-      } catch (err) {
-        alert('Failed to delete user');
-      }
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      await api.delete(`/admin/users/${id}`);
+      setSuccess('Access revoked successfully!');
+      fetchStaff();
+      setShowRevokeConfirm(false);
+      setSelectedStaffToRevoke(null);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to revoke staff access');
+      setShowRevokeConfirm(false);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -79,6 +167,9 @@ const AdminDashboard = () => {
           <a href="#" className={`nav-link ${activeTab === 'workforce' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('workforce'); }}>
             <i data-lucide="users"></i> Workforce
           </a>
+          <a href="#" className={`nav-link ${activeTab === 'supply' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('supply'); }}>
+            <i data-lucide="package-search"></i> Supply Chain
+          </a>
           <a href="#" className={`nav-link ${activeTab === 'financials' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('financials'); }}>
             <i data-lucide="landmark"></i> Financials
           </a>
@@ -92,8 +183,16 @@ const AdminDashboard = () => {
       </div>
 
       <div className="top-nav">
-        <div id="liveClock" className="desktop-only-flex" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
-          {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <span style={{ fontSize: '17px', fontWeight: 950, color: 'var(--primary)', letterSpacing: '-0.5px' }}>MediCore</span>
+            <span style={{ fontSize: '10px', background: 'var(--primary-light)', color: 'var(--primary)', padding: '3px 8px', borderRadius: '99px', fontWeight: 700 }} className="desktop-only-inline">
+              Admin Console
+            </span>
+          </div>
+          <div id="liveClock" className="desktop-only-flex" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
+            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
         </div>
         <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto', cursor: 'pointer', position: 'relative' }} onClick={() => setShowProfileMenu(!showProfileMenu)}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }} className="desktop-only-flex">
@@ -156,36 +255,35 @@ const AdminDashboard = () => {
                 {error && <div style={{ color: 'red', marginBottom: '12px', background: '#FEF2F2', padding: '8px', borderRadius: '8px' }}>{error}</div>}
                 {success && <div style={{ color: 'green', marginBottom: '12px', background: '#ECFDF5', padding: '8px', borderRadius: '8px' }}>{success}</div>}
                 <form onSubmit={handleAddStaff}>
-                  <div className="form-group">
-                    <label>Name</label>
-                    <input type="text" className="form-control" value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} required />
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={labelStyle}>Name</label>
+                    <input type="text" style={inputStyle} value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} placeholder="e.g. Dr. Jane Smith" required />
                   </div>
-                  <div className="form-group">
-                    <label>Staff ID (Username)</label>
-                    <input type="text" className="form-control" value={newStaff.staff_id} onChange={e => setNewStaff({...newStaff, staff_id: e.target.value})} required />
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={labelStyle}>Staff ID (Username)</label>
+                    <input type="text" style={inputStyle} value={newStaff.staff_id} onChange={e => setNewStaff({...newStaff, staff_id: e.target.value})} placeholder="e.g. janesmith" required />
                   </div>
-                  <div className="form-group">
-                    <label>Password</label>
-                    <input type="password" className="form-control" value={newStaff.password} onChange={e => setNewStaff({...newStaff, password: e.target.value})} required />
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={labelStyle}>Password</label>
+                    <input type="password" style={inputStyle} value={newStaff.password} onChange={e => setNewStaff({...newStaff, password: e.target.value})} placeholder="••••••••" required />
                   </div>
-                  <div className="form-group">
-                    <label>Role</label>
-                    <select className="form-control" value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={labelStyle}>Role</label>
+                    <select style={inputStyle} value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
                       <option value="doctor">Doctor</option>
                       <option value="receptionist">Receptionist</option>
                       <option value="lab">Laboratory</option>
                       <option value="pharmacy">Pharmacy</option>
-                      <option value="patient">Patient</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>
                   {newStaff.role === 'doctor' && (
-                    <div className="form-group" style={{ animation: 'fadeIn 0.2s ease-out' }}>
-                      <label>Daily Max Slots Control</label>
-                      <input type="number" className="form-control" min="1" max="100" value={newStaff.max_slots} onChange={e => setNewStaff({...newStaff, max_slots: Number(e.target.value)})} required />
+                    <div className="form-group" style={{ animation: 'fadeIn 0.2s ease-out', marginBottom: '16px' }}>
+                      <label style={labelStyle}>Daily Max Slots Control</label>
+                      <input type="number" style={inputStyle} min="1" max="100" value={newStaff.max_slots} onChange={e => setNewStaff({...newStaff, max_slots: Number(e.target.value)})} required />
                     </div>
                   )}
-                  <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center', marginTop: '16px' }}>
+                  <button type="submit" disabled={loading} style={btnStyle}>
                     {loading ? 'Adding...' : 'Create Account'}
                   </button>
                 </form>
@@ -207,7 +305,16 @@ const AdminDashboard = () => {
                           <td><b>{user.role === 'doctor' ? (user.max_slots || 10) : '-'}</b></td>
                           <td>
                             {user.role !== 'admin' && (
-                              <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleDeleteStaff(user._id || user.id)}>Revoke Access</button>
+                              <button 
+                                className="btn btn-secondary" 
+                                style={{ padding: '6px 12px', fontSize: '12px', borderColor: '#FCA5A5', color: '#EF4444' }} 
+                                onClick={() => {
+                                  setSelectedStaffToRevoke({ id: user._id || user.id, name: user.name });
+                                  setShowRevokeConfirm(true);
+                                }}
+                              >
+                                Revoke Access
+                              </button>
                             )}
                           </td>
                         </tr>
@@ -229,42 +336,118 @@ const AdminDashboard = () => {
                   {error && <div style={{ color: 'red', marginBottom: '12px', background: '#FEF2F2', padding: '8px', borderRadius: '8px' }}>{error}</div>}
                   {success && <div style={{ color: 'green', marginBottom: '12px', background: '#ECFDF5', padding: '8px', borderRadius: '8px' }}>{success}</div>}
                   <form onSubmit={handleAddStaff}>
-                    <div className="form-group">
-                      <label>Name</label>
-                      <input type="text" className="form-control" value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} required />
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label style={labelStyle}>Name</label>
+                      <input type="text" style={inputStyle} value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} placeholder="e.g. Dr. Jane Smith" required />
                     </div>
-                    <div className="form-group">
-                      <label>Staff ID (Username)</label>
-                      <input type="text" className="form-control" value={newStaff.staff_id} onChange={e => setNewStaff({...newStaff, staff_id: e.target.value})} required />
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label style={labelStyle}>Staff ID (Username)</label>
+                      <input type="text" style={inputStyle} value={newStaff.staff_id} onChange={e => setNewStaff({...newStaff, staff_id: e.target.value})} placeholder="e.g. janesmith" required />
                     </div>
-                    <div className="form-group">
-                      <label>Password</label>
-                      <input type="password" className="form-control" value={newStaff.password} onChange={e => setNewStaff({...newStaff, password: e.target.value})} required />
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label style={labelStyle}>Password</label>
+                      <input type="password" style={inputStyle} value={newStaff.password} onChange={e => setNewStaff({...newStaff, password: e.target.value})} placeholder="••••••••" required />
                     </div>
-                    <div className="form-group">
-                      <label>Role</label>
-                      <select className="form-control" value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label style={labelStyle}>Role</label>
+                      <select style={inputStyle} value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
                         <option value="doctor">Doctor</option>
                         <option value="receptionist">Receptionist</option>
                         <option value="lab">Laboratory</option>
                         <option value="pharmacy">Pharmacy</option>
-                        <option value="patient">Patient</option>
                         <option value="admin">Admin</option>
                       </select>
                     </div>
                     {newStaff.role === 'doctor' && (
-                      <div className="form-group">
-                        <label>Daily Max Slots Control</label>
-                        <input type="number" className="form-control" min="1" max="100" value={newStaff.max_slots} onChange={e => setNewStaff({...newStaff, max_slots: Number(e.target.value)})} required />
+                      <div className="form-group" style={{ marginBottom: '16px' }}>
+                        <label style={labelStyle}>Daily Max Slots Control</label>
+                        <input type="number" style={inputStyle} min="1" max="100" value={newStaff.max_slots} onChange={e => setNewStaff({...newStaff, max_slots: Number(e.target.value)})} required />
                       </div>
                     )}
-                    <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center', marginTop: '16px' }}>
+                    <button type="submit" disabled={loading} style={btnStyle}>
                       {loading ? 'Adding...' : 'Create Account'}
                     </button>
                   </form>
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'supply' && (
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
+            <div style={{ marginBottom: '32px' }}>
+              <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#1E293B' }}>Supply Chain & Replenishment</h1>
+              <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Centralized hospital inventory health monitor</p>
+            </div>
+
+            {success && <div style={{ color: 'green', background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '12px 20px', borderRadius: '12px', marginBottom: '24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><i data-lucide="check-circle"></i>{success}</div>}
+            {error && <div style={{ color: 'red', background: '#FEF2F2', border: '1px solid #FCA5A5', padding: '12px 20px', borderRadius: '12px', marginBottom: '24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><i data-lucide="alert-triangle"></i>{error}</div>}
+
+            <div className="glass-card" style={{ padding: 0 }}>
+              <div style={{ padding: '24px', borderBottom: '1px solid var(--border)' }}>
+                <h3 style={{ margin: 0, fontWeight: 800 }}>Critical Stock Warnings</h3>
+              </div>
+              <div className="table-responsive">
+                <table className="elite-table" style={{ margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Department</th>
+                      <th>Item Name</th>
+                      <th>Category</th>
+                      <th>Current Stock</th>
+                      <th>Alert Status</th>
+                      <th>Replenishment Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventoryAlerts.map(alert => (
+                      <tr key={`${alert.department}-${alert._id}`}>
+                        <td>
+                          <span style={{ 
+                            background: alert.department === 'Pharmacy' ? '#EFF6FF' : '#F5F3FF', 
+                            color: alert.department === 'Pharmacy' ? '#2563EB' : '#7C3AED',
+                            padding: '4px 10px',
+                            borderRadius: '99px',
+                            fontWeight: 700,
+                            fontSize: '11px',
+                            textTransform: 'uppercase'
+                          }}>
+                            {alert.department}
+                          </span>
+                        </td>
+                        <td><b>{alert.name}</b></td>
+                        <td>{alert.category}</td>
+                        <td style={{ fontWeight: 700, color: '#EF4444' }}>{alert.stock}</td>
+                        <td>
+                          <span className="status-badge critical">
+                            {alert.status}
+                          </span>
+                        </td>
+                        <td>
+                          <button 
+                            className="btn btn-primary" 
+                            disabled={loading}
+                            style={{ padding: '6px 14px', fontSize: '12px', background: '#10B981', borderColor: '#10B981' }}
+                            onClick={() => handleAdminRestock(alert)}
+                          >
+                            Approve & Restock (+100)
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {inventoryAlerts.length === 0 && (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontWeight: 600 }}>
+                          <i data-lucide="shield-check" style={{ width: '48px', height: '48px', color: '#10B981', marginBottom: '16px', display: 'block', margin: '0 auto 16px' }}></i>
+                          All hospital departments are fully supplied! No active warnings.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
@@ -303,9 +486,51 @@ const AdminDashboard = () => {
       <div className="mobile-bottom-nav">
         <div className={`mob-nav-item ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}><i data-lucide="bar-chart-3"></i><span>Analytics</span></div>
         <div className={`mob-nav-item ${activeTab === 'workforce' ? 'active' : ''}`} onClick={() => setActiveTab('workforce')}><i data-lucide="users"></i><span>Workforce</span></div>
+        <div className={`mob-nav-item ${activeTab === 'supply' ? 'active' : ''}`} onClick={() => setActiveTab('supply')}><i data-lucide="package-search"></i><span>Supply</span></div>
         <div className={`mob-nav-item ${activeTab === 'financials' ? 'active' : ''}`} onClick={() => setActiveTab('financials')}><i data-lucide="landmark"></i><span>Financials</span></div>
         <div className={`mob-nav-item ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}><i data-lucide="settings"></i><span>Config</span></div>
       </div>
+
+      {/* Premium Revoke Confirmation Modal */}
+      {showRevokeConfirm && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, animation: 'fadeIn 0.2s ease-out' }}>
+          <div className="glass-card" style={{ width: '440px', padding: '32px', background: 'white', borderRadius: '16px', border: '1px solid #FCA5A5', boxShadow: '0 20px 25px -5px rgba(220, 38, 38, 0.1)' }}>
+            
+            {/* Warning Icon */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#FEF2F2', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <i data-lucide="shield-alert" style={{ width: '28px', height: '28px' }}></i>
+              </div>
+            </div>
+
+            <h3 style={{ textAlign: 'center', margin: '0 0 12px 0', fontSize: '18px', fontWeight: 800, color: '#1E293B' }}>Revoke Staff Access</h3>
+            <p style={{ textAlign: 'center', margin: '0 0 24px 0', fontSize: '14px', color: '#64748B', lineHeight: '20px', fontWeight: 500 }}>
+              Are you sure you want to permanently revoke system access for <b style={{ color: '#1E293B' }}>{selectedStaffToRevoke?.name}</b>?<br />
+              This staff member will no longer be able to log in.
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                className="btn btn-secondary" 
+                style={{ flex: 1, height: '44px', justifyContent: 'center', fontWeight: 700, borderRadius: '10px' }}
+                onClick={() => {
+                  setShowRevokeConfirm(false);
+                  setSelectedStaffToRevoke(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn" 
+                style={{ flex: 1, height: '44px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)' }}
+                onClick={() => handleDeleteStaff(selectedStaffToRevoke?.id)}
+              >
+                Confirm Revoke
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

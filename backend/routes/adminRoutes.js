@@ -62,4 +62,41 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
+// Get all low-stock inventory alerts from both Pharmacy (Medicine) and Laboratory (LabInventory)
+router.get('/inventory-alerts', async (req, res) => {
+  try {
+    const Medicine = require('../models/Medicine');
+    const LabInventory = require('../models/LabInventory');
+
+    const lowMedicines = await Medicine.find({ status: { $in: ['Low Stock', 'Out of Stock'] } });
+    const lowLabReagents = await LabInventory.find({ status: { $in: ['Low Stock', 'Out of Stock'] } });
+
+    // Format them with a consistent structure for the Admin Dashboard
+    const alerts = [
+      ...lowMedicines.map(m => ({
+        _id: m._id,
+        name: m.name,
+        category: m.category,
+        stock: `${m.stock} ${m.unit}`,
+        status: m.status === 'Out of Stock' ? 'Out of Stock' : 'Low Stock',
+        department: 'Pharmacy',
+        rawItem: m
+      })),
+      ...lowLabReagents.map(l => ({
+        _id: l._id,
+        name: l.name,
+        category: l.category,
+        stock: `${l.stock} ${l.unit}`,
+        status: l.status === 'Out of Stock' ? 'Out of Stock' : 'Low Stock',
+        department: 'Laboratory',
+        rawItem: l
+      }))
+    ];
+
+    res.json(alerts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

@@ -9,15 +9,69 @@ const LabDashboard = () => {
   const [selectedReqForCollection, setSelectedReqForCollection] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   
+  // Real Database Lab Inventory States
+  const [labInventory, setLabInventory] = useState([]);
+  const [showLabInventoryModal, setShowLabInventoryModal] = useState(false);
+  const [labModalMode, setLabModalMode] = useState('add'); // 'add', 'edit', 'restock'
+  const [labFormData, setLabFormData] = useState({
+    name: '',
+    category: 'Reagents',
+    stock: 50,
+    unit: 'L',
+    threshold: 20,
+    addQty: 10
+  });
+  const [currentLabItemId, setCurrentLabItemId] = useState(null);
+
+  // Success / Error messages to replace native alert boxes
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   const [labRequests, setLabRequests] = useState([]);
-  const [labInventory, setLabInventory] = useState([
-    { id: 1, name: 'Hematology Reagent', category: 'Reagents', stock: '12L', threshold: '20L', lastRestock: '12 May', status: 'Low' },
-    { id: 2, name: 'Vacuum Tubes (Red)', category: 'Consumables', stock: '240 units', threshold: '1000 units', lastRestock: '05 May', status: 'Low' },
-    { id: 3, name: 'Glucose Test Strips', category: 'Consumables', stock: '5000 units', threshold: '2000 units', lastRestock: '10 May', status: 'Healthy' }
-  ]);
+
+  const inputStyle = {
+    width: '100%',
+    height: '48px',
+    background: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+    borderRadius: '12px',
+    padding: '0 16px',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#1E293B',
+    boxSizing: 'border-box',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '13px',
+    fontWeight: 800,
+    color: '#475569',
+    marginBottom: '8px',
+    fontFamily: "'Outfit', sans-serif"
+  };
+
+  const btnStyle = {
+    width: '100%',
+    height: '48px',
+    background: '#2563EB',
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s ease',
+  };
 
   useEffect(() => {
     fetchData();
@@ -27,6 +81,9 @@ const LabDashboard = () => {
     try {
       const res = await api.get('/labs');
       setLabRequests(res.data);
+      
+      const invRes = await api.get('/lab-inventory');
+      setLabInventory(invRes.data);
     } catch (err) {
       console.error(err);
     }
@@ -36,7 +93,7 @@ const LabDashboard = () => {
     if (window.lucide) {
       window.lucide.createIcons();
     }
-  }, [activeTab, labRequests, labInventory, showCollectModal, activeSampleForEntry, showProfileMenu]);
+  }, [activeTab, labRequests, labInventory, showCollectModal, activeSampleForEntry, showProfileMenu, showLabInventoryModal]);
 
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
@@ -65,10 +122,12 @@ const LabDashboard = () => {
       setShowCollectModal(false);
       setSelectedReqForCollection(null);
       fetchData();
-      alert("Sample collected and sent to processing!");
+      setSuccessMessage("Sample collected and sent to processing!");
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error(err);
-      alert('Failed to collect sample');
+      setErrorMessage('Failed to collect sample');
+      setTimeout(() => setErrorMessage(''), 3000);
     }
   };
 
@@ -81,13 +140,103 @@ const LabDashboard = () => {
     if (!activeSampleForEntry) return;
     try {
       await api.put(`/labs/${activeSampleForEntry._id}`, { status: 'Completed', results: 'Completed Analysis' });
-      alert(`Lab results for ${activeSampleForEntry.patientId?.name} verified and sent to consulting doctor!`);
+      setSuccessMessage(`Lab results for ${activeSampleForEntry.patientId?.name || 'Patient'} verified and sent to consulting doctor!`);
+      setTimeout(() => setSuccessMessage(''), 4000);
       setActiveSampleForEntry(null);
       fetchData();
       setActiveTab('lab-dash');
     } catch (err) {
       console.error(err);
-      alert('Failed to finalize result');
+      setErrorMessage('Failed to finalize result');
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
+  };
+
+  // Lab Inventory operations
+  const handleOpenAddLabItem = () => {
+    setLabModalMode('add');
+    setLabFormData({
+      name: '',
+      category: 'Reagents',
+      stock: 50,
+      unit: 'L',
+      threshold: 20,
+      addQty: 10
+    });
+    setShowLabInventoryModal(true);
+  };
+
+  const handleOpenEditLabItem = (item) => {
+    setLabModalMode('edit');
+    setCurrentLabItemId(item._id);
+    setLabFormData({
+      name: item.name,
+      category: item.category,
+      stock: item.stock,
+      unit: item.unit,
+      threshold: item.threshold,
+      addQty: 10
+    });
+    setShowLabInventoryModal(true);
+  };
+
+  const handleOpenRestockLabItem = (item) => {
+    setLabModalMode('restock');
+    setCurrentLabItemId(item._id);
+    setLabFormData({
+      name: item.name,
+      category: item.category,
+      stock: item.stock,
+      unit: item.unit,
+      threshold: item.threshold,
+      addQty: 10
+    });
+    setShowLabInventoryModal(true);
+  };
+
+  const handleSaveLabItem = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      if (labModalMode === 'add') {
+        await api.post('/lab-inventory', labFormData);
+        setSuccessMessage('Lab item added successfully');
+      } else if (labModalMode === 'restock') {
+        await api.put(`/lab-inventory/${currentLabItemId}`, { 
+          isRestock: true, 
+          addQty: labFormData.addQty 
+        });
+        setSuccessMessage('Inventory restocked successfully');
+      } else {
+        await api.put(`/lab-inventory/${currentLabItemId}`, labFormData);
+        setSuccessMessage('Lab item updated successfully');
+      }
+      setShowLabInventoryModal(false);
+      fetchData();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error(err);
+      setErrorMessage(err.response?.data?.error || 'Failed to save item');
+      setTimeout(() => setErrorMessage(''), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteLabItem = async (id) => {
+    if (window.confirm('Are you sure you want to delete this lab item?')) {
+      try {
+        await api.delete(`/lab-inventory/${id}`);
+        setSuccessMessage('Lab item deleted successfully');
+        fetchData();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } catch (err) {
+        console.error(err);
+        setErrorMessage('Failed to delete item');
+        setTimeout(() => setErrorMessage(''), 3000);
+      }
     }
   };
 
@@ -108,8 +257,16 @@ const LabDashboard = () => {
       </div>
 
       <div className="top-nav">
-        <div id="liveClock" className="desktop-only-flex" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
-          {currentTime}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <span style={{ fontSize: '17px', fontWeight: 950, color: 'var(--primary)', letterSpacing: '-0.5px' }}>MediCore</span>
+            <span style={{ fontSize: '10px', background: 'var(--primary-light)', color: 'var(--primary)', padding: '3px 8px', borderRadius: '99px', fontWeight: 700 }} className="desktop-only-inline">
+              Laboratory Portal
+            </span>
+          </div>
+          <div id="liveClock" className="desktop-only-flex" style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px 16px', borderRadius: '99px', fontWeight: 700, fontSize: '14px' }}>
+            {currentTime}
+          </div>
         </div>
         <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto', cursor: 'pointer', position: 'relative' }} onClick={() => setShowProfileMenu(!showProfileMenu)}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }} className="desktop-only-flex">
@@ -137,6 +294,9 @@ const LabDashboard = () => {
       </div>
 
       <div className="main-content">
+        {successMessage && <div style={{ color: 'green', background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '12px 20px', borderRadius: '12px', marginBottom: '24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><i data-lucide="check-circle"></i>{successMessage}</div>}
+        {errorMessage && <div style={{ color: 'red', background: '#FEF2F2', border: '1px solid #FCA5A5', padding: '12px 20px', borderRadius: '12px', marginBottom: '24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><i data-lucide="alert-triangle"></i>{errorMessage}</div>}
+
         {activeTab === 'lab-dash' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
             <div className="dashboard-header" style={{ marginBottom: '32px' }}>
@@ -187,15 +347,18 @@ const LabDashboard = () => {
               <div className="glass-card">
                 <h3 style={{ fontWeight: 800, fontSize: '18px', marginBottom: '20px' }}>Inventory Alerts</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {labInventory.filter(item => item.status === 'Low').map(item => (
-                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#F8FAFC', borderRadius: '12px' }}>
+                  {labInventory.filter(item => item.status === 'Low Stock' || item.status === 'Out of Stock').map(item => (
+                    <div key={item._id || item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#F8FAFC', borderRadius: '12px', borderLeft: '4px solid #EF4444' }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700, fontSize: '13px' }}>{item.name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 700 }}>Low: {item.stock}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 700 }}>{item.status}: {item.stock} {item.unit}</div>
                       </div>
-                      <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '10px' }}>Order</button>
+                      <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '10px' }} onClick={() => handleOpenRestockLabItem(item)}>Restock</button>
                     </div>
                   ))}
+                  {labInventory.filter(item => item.status === 'Low Stock' || item.status === 'Out of Stock').length === 0 && (
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', margin: '20px 0' }}>All reagents & consumables are healthy!</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -309,18 +472,42 @@ const LabDashboard = () => {
 
         {activeTab === 'lab-inventory' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <h1 style={{ fontSize: '26px', fontWeight: 900, marginBottom: '24px' }}>Lab Inventory</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h1 style={{ fontSize: '26px', fontWeight: 900, margin: 0 }}>Lab Inventory</h1>
+              <button className="btn btn-primary" onClick={handleOpenAddLabItem}><i data-lucide="plus"></i> Add Item</button>
+            </div>
             <div className="glass-card" style={{ padding: 0 }}>
               <div className="table-responsive">
                 <table className="elite-table" style={{ margin: 0 }}>
-                  <thead><tr><th>Item</th><th>Category</th><th>Stock</th><th>Status</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Category</th>
+                      <th>Stock Level</th>
+                      <th>Alert Threshold</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {labInventory.map(item => (
-                      <tr key={item.id}>
+                      <tr key={item._id || item.id}>
                         <td><b>{item.name}</b></td>
                         <td>{item.category}</td>
-                        <td style={{ fontWeight: 700 }}>{item.stock}</td>
-                        <td><span className={`status-badge ${item.status === 'Low' ? 'critical' : 'available'}`}>{item.status}</span></td>
+                        <td style={{ fontWeight: 700 }}>{item.stock} {item.unit}</td>
+                        <td>{item.threshold} {item.unit}</td>
+                        <td>
+                          <span className={`status-badge ${item.status === 'Healthy' ? 'available' : 'critical'}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => handleOpenEditLabItem(item)}>Edit</button>
+                            <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => handleOpenRestockLabItem(item)}>Restock</button>
+                            <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', color: 'var(--danger)', borderColor: '#FECACA' }} onClick={() => handleDeleteLabItem(item._id || item.id)}>Delete</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -339,20 +526,108 @@ const LabDashboard = () => {
       </div>
 
       {showCollectModal && selectedReqForCollection && (
-        <div className="modal-overlay" style={{ display: 'flex', zIndex: 1100 }}>
-          <div className="modal-box" style={{ width: '95%', maxWidth: '500px' }}>
+        <div className="modal-overlay" style={{ display: 'flex', zIndex: 1100, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }}>
+          <div className="modal-box" style={{ width: '95%', maxWidth: '500px', background: 'white', padding: '32px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '22px', fontWeight: 900 }}>Collect Sample</h2>
-              <button className="btn" onClick={() => setShowCollectModal(false)}><i data-lucide="x"></i></button>
+              <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#1A1D23', margin: 0 }}>Collect Sample</h2>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }} onClick={() => setShowCollectModal(false)}>
+                <i data-lucide="x" style={{ width: '20px', height: '20px' }}></i>
+              </button>
             </div>
-            <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '12px', marginBottom: '24px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Patient</div>
-              <div style={{ fontSize: '18px', fontWeight: 900 }}>{selectedReqForCollection.patientId?.name}</div>
-              <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Test Required</div>
-              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)' }}>{selectedReqForCollection.testName}</div>
+            <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '16px', marginBottom: '24px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Patient</div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: '#1E293B', marginBottom: '16px' }}>{selectedReqForCollection.patientId?.name}</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Test Required</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--primary)' }}>{selectedReqForCollection.testName}</div>
             </div>
-            <div className="form-group"><label>Sample Type</label><select className="form-control"><option>Venous Blood</option><option>Urine</option><option>Swab</option></select></div>
-            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', height: '54px', fontSize: '16px', marginTop: '20px' }} onClick={confirmCollection}>Confirm & Print Label</button>
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label style={labelStyle}>Sample Type</label>
+              <select style={inputStyle} className="form-control">
+                <option>Venous Blood</option>
+                <option>Urine</option>
+                <option>Swab</option>
+              </select>
+            </div>
+            <button type="button" style={btnStyle} onClick={confirmCollection}>Confirm & Print Label</button>
+          </div>
+        </div>
+      )}
+      {/* Unified Manage Reagent/Supply Modal */}
+      {showLabInventoryModal && (
+        <div className="modal-overlay" style={{ display: 'flex', zIndex: 1300, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowLabInventoryModal(false)}>
+          <div className="modal-box glass-card" style={{ width: '90%', maxWidth: '500px', background: 'white', padding: '32px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', position: 'relative' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#1A1D23', margin: 0 }}>
+                {labModalMode === 'add' ? 'Add Reagent/Supply' : labModalMode === 'restock' ? 'Restock Lab Supply' : 'Edit Supply Details'}
+              </h2>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }} onClick={() => setShowLabInventoryModal(false)}>
+                <i data-lucide="x" style={{ width: '20px', height: '20px' }}></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveLabItem}>
+              {labModalMode !== 'restock' ? (
+                <>
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={labelStyle}>Supply Name</label>
+                    <input type="text" style={inputStyle} value={labFormData.name} onChange={e => setLabFormData({...labFormData, name: e.target.value})} required placeholder="e.g. Hematology Reagent" />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    <div className="form-group">
+                      <label style={labelStyle}>Category</label>
+                      <select style={inputStyle} value={labFormData.category} onChange={e => setLabFormData({...labFormData, category: e.target.value})} required>
+                        <option value="Reagents">Reagents</option>
+                        <option value="Consumables">Consumables</option>
+                        <option value="Equipment">Equipment</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label style={labelStyle}>Unit Type</label>
+                      <select style={inputStyle} value={labFormData.unit} onChange={e => setLabFormData({...labFormData, unit: e.target.value})} required>
+                        <option value="L">L</option>
+                        <option value="units">units</option>
+                        <option value="boxes">boxes</option>
+                        <option value="kits">kits</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    <div className="form-group">
+                      <label style={labelStyle}>Current Stock</label>
+                      <input type="number" style={inputStyle} value={labFormData.stock} onChange={e => setLabFormData({...labFormData, stock: Number(e.target.value)})} required />
+                    </div>
+
+                    <div className="form-group">
+                      <label style={labelStyle}>Low Threshold Alert</label>
+                      <input type="number" style={inputStyle} value={labFormData.threshold} onChange={e => setLabFormData({...labFormData, threshold: Number(e.target.value)})} required />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '12px', marginBottom: '24px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Supply Item</div>
+                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#1E293B' }}>{labFormData.name}</div>
+                    <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Current Inventory</div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)' }}>{labFormData.stock} {labFormData.unit} (Threshold: {labFormData.threshold})</div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '24px' }}>
+                    <label style={labelStyle}>Add Quantity</label>
+                    <input type="number" style={inputStyle} value={labFormData.addQty} onChange={e => setLabFormData({...labFormData, addQty: Number(e.target.value)})} required min="1" />
+                  </div>
+                </>
+              )}
+
+              <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center', height: '48px', borderRadius: '12px' }} onClick={() => setShowLabInventoryModal(false)}>Cancel</button>
+                <button type="submit" disabled={loading} style={{ ...btnStyle, flex: 1 }}>
+                  {loading ? 'Saving...' : labModalMode === 'add' ? 'Add Item' : labModalMode === 'restock' ? 'Restock Item' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

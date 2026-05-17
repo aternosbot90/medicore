@@ -94,4 +94,69 @@ router.put('/profile/:id', async (req, res) => {
   }
 });
 
+// Patient registration public endpoint
+router.post('/register', async (req, res) => {
+  const { firstName, lastName, email, contact, password, age, gender, bloodGroup, allergies, history } = req.body;
+
+  if (!firstName || !lastName || !email || !contact || !password || !age || !gender || !bloodGroup) {
+    return res.status(400).json({ error: 'All fields are required (Name, Email, Mobile, Password, Age, Gender, Blood Group)' });
+  }
+
+  try {
+    // Check if user already exists
+    const existingUser = await User.findOne({ staff_id: contact });
+    if (existingUser) {
+      return res.status(400).json({ error: 'A user with this mobile/contact number already exists' });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(password, salt);
+
+    const name = `${firstName} ${lastName}`;
+
+    // Create User record for authentication
+    await User.create({
+      staff_id: contact,
+      password_hash,
+      role: 'patient',
+      name,
+      isSetupComplete: true
+    });
+
+    // Create linked Patient record for clinical data
+    const newPatient = await Patient.create({
+      name,
+      age: parseInt(age) || 30,
+      gender: gender || 'Male',
+      contact,
+      address: '',
+      bloodGroup: bloodGroup || 'O+',
+      allergies: allergies || 'None',
+      medicalHistory: history ? [history] : []
+    });
+
+    // Generate JWT
+    const token = jwt.sign(
+      { id: newPatient._id, role: 'patient', name },
+      process.env.JWT_SECRET || 'medicore_secret_key',
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({
+      message: 'Registration successful',
+      token,
+      user: {
+        id: newPatient._id,
+        staff_id: contact,
+        role: 'patient',
+        name
+      }
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({ error: 'Server error during registration' });
+  }
+});
+
 module.exports = router;

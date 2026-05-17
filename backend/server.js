@@ -14,7 +14,9 @@ const patientRoutes = require('./routes/patientRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const prescriptionRoutes = require('./routes/prescriptionRoutes');
 const labRoutes = require('./routes/labRoutes');
+const labInventoryRoutes = require('./routes/labInventoryRoutes');
 const billingRoutes = require('./routes/billingRoutes');
+const medicineRoutes = require('./routes/medicineRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,7 +35,9 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/labs', labRoutes);
+app.use('/api/lab-inventory', labInventoryRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/medicines', medicineRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {
