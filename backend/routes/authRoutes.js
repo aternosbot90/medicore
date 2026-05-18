@@ -39,8 +39,17 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Match JWT payload ID to Patient document ID if role is patient
+    let tokenPayload = { id: user._id, staff_id: user.staff_id, role: user.role, name: user.name };
+    if (user.role === 'patient') {
+      const patient = await Patient.findOne({ contact: user.staff_id });
+      if (patient) {
+        tokenPayload.id = patient._id;
+      }
+    }
+
     const token = jwt.sign(
-      { id: user._id, staff_id: user.staff_id, role: user.role, name: user.name },
+      tokenPayload,
       process.env.JWT_SECRET || 'medicore_secret_key',
       { expiresIn: '24h' }
     );
@@ -49,7 +58,7 @@ router.post('/login', async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        id: user._id,
+        id: tokenPayload.id,
         staff_id: user.staff_id,
         role: user.role,
         name: user.name,
@@ -130,6 +139,7 @@ router.post('/register', async (req, res) => {
       age: parseInt(age) || 30,
       gender: gender || 'Male',
       contact,
+      email: email || 'N/A',
       address: '',
       bloodGroup: bloodGroup || 'O+',
       allergies: allergies || 'None',

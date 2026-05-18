@@ -177,6 +177,36 @@ const DoctorDashboard = () => {
 
   // Lab & Radiology State
   const [labs, setLabs] = useState(['CBC', 'Lipid Profile']);
+  const [customLabInput, setCustomLabInput] = useState('');
+  const [activeMedFocus, setActiveMedFocus] = useState(null);
+  const [dbMedicines, setDbMedicines] = useState([]);
+  const recognitionRef = useRef(null);
+  const baseTextRef = useRef('');
+  const finalTranscriptRef = useRef('');
+  const aiChatScrollRef = useRef(null);
+
+  // Fetch real seeded medicines from database on mount
+  useEffect(() => {
+    const fetchDbMedicines = async () => {
+      try {
+        const response = await api.get('/api/medicines');
+        if (response.data) {
+          setDbMedicines(response.data);
+        }
+      } catch (err) {
+        console.error("Failed fetching database medicines", err);
+      }
+    };
+    fetchDbMedicines();
+  }, []);
+
+
+
+  // Safe cleanup for page and tab switching
+  useEffect(() => {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+  }, [activeTab]);
 
   // Advice & Follow Up
   const [advice, setAdvice] = useState({
@@ -207,12 +237,102 @@ const DoctorDashboard = () => {
   const [showPdf, setShowPdf] = useState(false);
   const [rxTemplate, setRxTemplate] = useState('General OPD');
 
+  // Freeze background page scroll when any Modal Dialog is active
+  useEffect(() => {
+    if (showPdf || previewFile || showTimelineModal) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [showPdf, previewFile, showTimelineModal, activeTab]);
+
   // Real AI Assistant State
   const [aiInput, setAiInput] = useState('');
   const [aiChat, setAiChat] = useState([
     { role: 'assistant', text: 'Hello, I am your **MediCore AI Clinical Copilot**. Type a query or use the fast triggers below to analyze clinical outcomes, review drug pathways, or draft patient diets.' }
   ]);
   const [aiTyping, setAiTyping] = useState(false);
+
+  // Professional page-flicker-free Boundary Scroll-Lock for Textareas & AI Chat (Desktop & Touch Mobile)
+  useEffect(() => {
+    const handleWheelBoundaryLock = (e) => {
+      const el = e.currentTarget;
+      const isAtTop = el.scrollTop === 0;
+      const isAtBottom = Math.abs(el.scrollHeight - el.scrollTop - el.clientHeight) < 1.5;
+      
+      // Prevent parent chaining scroll at top & bottom boundaries
+      if ((e.deltaY < 0 && isAtTop) || (e.deltaY > 0 && isAtBottom)) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        e.stopPropagation(); // Block Lenis or smooth-scroll library interception
+      }
+    };
+
+    let touchStartY = 0;
+    const handleTouchStart = (e) => {
+      touchStartY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e) => {
+      const el = e.currentTarget;
+      const touchY = e.touches[0].clientY;
+      const touchDeltaY = touchStartY - touchY;
+      const isAtTop = el.scrollTop === 0;
+      const isAtBottom = Math.abs(el.scrollHeight - el.scrollTop - el.clientHeight) < 1.5;
+
+      if ((touchDeltaY < 0 && isAtTop) || (touchDeltaY > 0 && isAtBottom)) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        e.stopPropagation(); // Block Lenis or smooth-scroll library touch interception
+      }
+    };
+
+    const subjectiveEl = document.getElementById('soap-subjective-input');
+    const objectiveEl = document.getElementById('soap-objective-input');
+    const chatEl = aiChatScrollRef.current;
+
+    if (subjectiveEl) {
+      subjectiveEl.addEventListener('wheel', handleWheelBoundaryLock, { passive: false });
+      subjectiveEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+      subjectiveEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+    }
+    if (objectiveEl) {
+      objectiveEl.addEventListener('wheel', handleWheelBoundaryLock, { passive: false });
+      objectiveEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+      objectiveEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+    }
+    if (chatEl) {
+      chatEl.addEventListener('wheel', handleWheelBoundaryLock, { passive: false });
+      chatEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+      chatEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+    }
+
+    return () => {
+      if (subjectiveEl) {
+        subjectiveEl.removeEventListener('wheel', handleWheelBoundaryLock);
+        subjectiveEl.removeEventListener('touchstart', handleTouchStart);
+        subjectiveEl.removeEventListener('touchmove', handleTouchMove);
+      }
+      if (objectiveEl) {
+        objectiveEl.removeEventListener('wheel', handleWheelBoundaryLock);
+        objectiveEl.removeEventListener('touchstart', handleTouchStart);
+        objectiveEl.removeEventListener('touchmove', handleTouchMove);
+      }
+      if (chatEl) {
+        chatEl.removeEventListener('wheel', handleWheelBoundaryLock);
+        chatEl.removeEventListener('touchstart', handleTouchStart);
+        chatEl.removeEventListener('touchmove', handleTouchMove);
+      }
+    };
+  }, [activeTab, selectedPatient, aiChat.length]);
 
   // Trigger auto BMI calculation
   useEffect(() => {
@@ -355,23 +475,177 @@ const DoctorDashboard = () => {
     }
   };
 
-  // Voice dictation simulation
+  // Real-time voice dictation using browser Web Speech API with interim results and permission handling
   const startDictation = (field) => {
-    setRecordingField(field);
-    setIsRecording(true);
-    addLog(`Voice prescription dictation started for ${field.toUpperCase()}`);
-    setTimeout(() => {
-      let dictatedText = '';
-      if (field === 'subjective') {
-        dictatedText = 'Patient reports persistent headache and neck stiffness for 3 days. Complains of fatigue and slight blurred vision.';
-      } else if (field === 'objective') {
-        dictatedText = 'Pulse regular at 76. S1 S2 heard. Chest clear, abdomen soft, pupils reactive to light.';
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech Recognition API is not supported in this browser. Please try using Chrome, Edge, or Safari.");
+      return;
+    }
+
+    // Helper to align phonetically transcribed Hinglish words to clean transliterated clinical script
+    const refineHinglishSpeech = (text) => {
+      if (!text) return "";
+      let processed = text.toLowerCase();
+
+      // Phonetic phrase dictionary that aligns Chrome's English outputs to exact spoken Hinglish
+      const phraseMap = {
+        "who are high": "ho raha hai",
+        "who are hi": "ho raha hai",
+        "or a hi": "ho raha hai",
+        "who are he": "ho rahi hai",
+        "or high": "ho rahi hai",
+        "booker hi": "bukhar hai",
+        "who card high": "bukhar hai",
+        "sir dirt": "sir dard",
+        "sir guard": "sir dard",
+        "paid dirt": "pet dard",
+        "patent guard": "pet dard",
+        "who are you": "ho rahi hai",
+        "who are y": "ho rahi hai",
+        "who a": "ho raha",
+        "who are": "ho raha",
+        "who is": "ho raha",
+        "who are all": "ho raha hai",
+        "fever who are": "fever ho raha",
+        "fever who": "fever ho",
+        "pain who are": "pain ho raha",
+        "pain who": "pain ho",
+        "headache who are": "headache ho raha",
+        "headache who": "headache ho",
+        "ho rha": "ho raha",
+        "ho rha hai": "ho raha hai",
+        "ho rha he": "ho raha hai",
+        "ho raha he": "ho raha hai"
+      };
+
+      Object.keys(phraseMap).forEach(key => {
+        const regex = new RegExp(`\\b${key}\\b`, 'g');
+        processed = processed.replace(regex, phraseMap[key]);
+      });
+
+      // Phonetic word-level spelling corrections
+      const wordMap = {
+        "casi": "khansi",
+        "kansi": "khansi",
+        "chucker": "chakkar",
+        "chakar": "chakkar",
+        "kamzori": "kamzori",
+        "ghabrane": "ghabranat",
+        "pet": "pet",
+        "dard": "dard"
+      };
+
+      processed = processed.split(' ').map(word => {
+        return wordMap[word] || word;
+      }).join(' ');
+
+      // Clean double spaces and capitalize first letter
+      processed = processed.replace(/\s+/g, ' ').trim();
+      return processed.charAt(0).toUpperCase() + processed.slice(1);
+    };
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (err) {}
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    
+    // Enable interim results so text appears immediately word-by-word as you speak!
+    recognition.interimResults = true;
+    
+    // Set language to en-IN which captures Indian English + Hindi accents + Hinglish blended words seamlessly!
+    recognition.lang = 'en-IN';
+
+    // Store starting text so we don't wipe out any pre-existing text in the textarea
+    baseTextRef.current = soap[field] || '';
+    finalTranscriptRef.current = '';
+
+    recognition.onstart = () => {
+      setRecordingField(field);
+      setIsRecording(true);
+      addLog(`Voice dictation active for ${field.toUpperCase()} - Speak in English or Hinglish now...`);
+    };
+
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+      let newFinalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          newFinalTranscript += transcript + ' ';
+        } else {
+          interimTranscript += transcript;
+        }
       }
-      setSoap(prev => ({ ...prev, [field]: prev[field] ? prev[field] + ' ' + dictatedText : dictatedText }));
+
+      // Append final results to our accumulator
+      if (newFinalTranscript) {
+        finalTranscriptRef.current += newFinalTranscript;
+      }
+
+      const fullLiveTranscript = (finalTranscriptRef.current + interimTranscript).trim();
+      const refinedTranscript = refineHinglishSpeech(fullLiveTranscript);
+
+      if (refinedTranscript) {
+        const targetVal = baseTextRef.current 
+          ? baseTextRef.current.trim() + ' ' + refinedTranscript 
+          : refinedTranscript;
+
+        // Write directly to the DOM for immediate, zero-lag rendering at 60 FPS while speaking!
+        const textarea = document.getElementById(`soap-${field}-input`);
+        if (textarea) {
+          textarea.value = targetVal;
+        }
+
+        // Keep React state in perfect sync
+        setSoap(prev => ({
+          ...prev,
+          [field]: targetVal
+        }));
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech Recognition Error", event.error);
+      addLog(`Speech Recognition Error: ${event.error}`);
+      
+      if (event.error === 'not-allowed') {
+        alert("Microphone access was blocked or denied.\n\nPlease click the Camera/Microphone icon in the top-right of your browser address bar and select 'Allow' or reset permissions to enable dictation.");
+      } else if (event.error === 'no-speech') {
+        addLog("No speech detected. Please speak clearly into the microphone.");
+      } else {
+        alert(`Voice Dictation Error: ${event.error}. Please ensure your mic is plugged in and allowed.`);
+      }
+      stopDictation();
+    };
+
+    recognition.onend = () => {
       setIsRecording(false);
-      addLog(`Voice prescription text successfully added to ${field.toUpperCase()}`);
-    }, 3000);
+      setRecordingField(null);
+      addLog(`Voice dictation stopped for ${field.toUpperCase()}`);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
   };
+
+  const stopDictation = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (err) {}
+      recognitionRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingField(null);
+  };
+
+
 
   // Medicine operations
   const addMedicineRow = (med = { name: '', dose: '', freq: '1 Tab BD', duration: '5 Days', timing: 'After Food', route: 'Oral', notes: '' }) => {
@@ -1011,7 +1285,8 @@ I have scanned the medical reference databases, but couldn't find a direct match
                 zIndex: 99999, 
                 padding: '8px', 
                 maxHeight: '300px', 
-                overflowY: 'auto' 
+                overflowY: 'auto',
+                overscrollBehavior: 'contain'
               }}
             >
               {patients.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.uhid.includes(searchQuery) || p.contact.includes(searchQuery)).map(p => (
@@ -1364,15 +1639,32 @@ I have scanned the medical reference databases, but couldn't find a direct match
                   <div className="form-group" style={{ position: 'relative' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <label style={{ fontWeight: 800 }}>S — Subjective (Symptoms & Complaints)</label>
-                      <button 
-                        onClick={() => startDictation('subjective')} 
-                        style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: isRecording && recordingField === 'subjective' ? 'var(--cu-danger)' : 'var(--cu-primary)' }}
-                      >
-                        <i data-lucide="mic" className={isRecording && recordingField === 'subjective' ? 'animate-pulse' : ''} style={{ width: '14px' }}></i>
-                        <span style={{ fontSize: '11px', fontWeight: 700 }}>{isRecording && recordingField === 'subjective' ? 'Recording...' : 'Dictate'}</span>
-                      </button>
+                      {isRecording && recordingField === 'subjective' ? (
+                        <button 
+                          onClick={stopDictation} 
+                          style={{ border: 'none', background: '#FEF2F2', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--cu-danger)', fontWeight: 800 }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" style={{ width: '10px', height: '10px' }} className="animate-pulse">
+                            <rect x="4" y="4" width="16" height="16" rx="2"/>
+                          </svg>
+                          <span style={{ fontSize: '11px', fontWeight: 800 }}>Stop Dictation</span>
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => startDictation('subjective')} 
+                          style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--cu-primary)' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '14px', height: '14px' }}>
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" x2="12" y1="19" y2="22"/>
+                          </svg>
+                          <span style={{ fontSize: '11px', fontWeight: 700 }}>Dictate</span>
+                        </button>
+                      )}
                     </div>
                     <textarea 
+                      id="soap-subjective-input"
                       className="form-control" 
                       style={{ minHeight: '100px', borderRadius: '10px' }} 
                       placeholder="e.g. Chest pain radiating to left arm, nausea, dyspnea on exertion..." 
@@ -1384,15 +1676,32 @@ I have scanned the medical reference databases, but couldn't find a direct match
                   <div className="form-group" style={{ position: 'relative' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <label style={{ fontWeight: 800 }}>O — Objective (Clinical Observations)</label>
-                      <button 
-                        onClick={() => startDictation('objective')} 
-                        style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: isRecording && recordingField === 'objective' ? 'var(--cu-danger)' : 'var(--cu-primary)' }}
-                      >
-                        <i data-lucide="mic" className={isRecording && recordingField === 'objective' ? 'animate-pulse' : ''} style={{ width: '14px' }}></i>
-                        <span style={{ fontSize: '11px', fontWeight: 700 }}>{isRecording && recordingField === 'objective' ? 'Recording...' : 'Dictate'}</span>
-                      </button>
+                      {isRecording && recordingField === 'objective' ? (
+                        <button 
+                          onClick={stopDictation} 
+                          style={{ border: 'none', background: '#FEF2F2', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--cu-danger)', fontWeight: 800 }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" style={{ width: '10px', height: '10px' }} className="animate-pulse">
+                            <rect x="4" y="4" width="16" height="16" rx="2"/>
+                          </svg>
+                          <span style={{ fontSize: '11px', fontWeight: 800 }}>Stop Dictation</span>
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => startDictation('objective')} 
+                          style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--cu-primary)' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '14px', height: '14px' }}>
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" x2="12" y1="19" y2="22"/>
+                          </svg>
+                          <span style={{ fontSize: '11px', fontWeight: 700 }}>Dictate</span>
+                        </button>
+                      )}
                     </div>
                     <textarea 
+                      id="soap-objective-input"
                       className="form-control" 
                       style={{ minHeight: '100px', borderRadius: '10px' }} 
                       placeholder="e.g. BP: 145/90, Pulse regular. Clear breath sounds, S1 S2 heard..." 
@@ -1411,9 +1720,16 @@ I have scanned the medical reference databases, but couldn't find a direct match
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
                   {diagnoses.map((diag, idx) => (
-                    <span key={idx} className="cu-badge primary" style={{ fontWeight: 800, gap: '6px' }}>
+                    <span key={idx} className="cu-badge primary" style={{ fontWeight: 800, gap: '6px', display: 'inline-flex', alignItems: 'center' }}>
                       {diag}
-                      <i data-lucide="x" style={{ width: '12px', cursor: 'pointer' }} onClick={() => setDiagnoses(diagnoses.filter((_, i) => i !== idx))}></i>
+                      <span 
+                        onClick={() => {
+                          setDiagnoses(diagnoses.filter((_, i) => i !== idx));
+                          addLog(`Removed Diagnosis: ${diag}`);
+                        }} 
+                        style={{ cursor: 'pointer', marginLeft: '4px', fontSize: '14px', lineHeight: 1, fontWeight: 900, opacity: 0.7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Remove"
+                      >&times;</span>
                     </span>
                   ))}
                 </div>
@@ -1432,7 +1748,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
                     onBlur={() => setTimeout(() => setShowDiagSuggestions(false), 200)}
                   />
                   {showDiagSuggestions && (
-                    <div className="glass-card" style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px', zIndex: 1100, padding: '8px' }}>
+                    <div className="glass-card" style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px', zIndex: 1100, padding: '8px', maxHeight: '250px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
                       {[
                         { code: 'I10', term: 'Essential Hypertension' },
                         { code: 'E11', term: 'Type 2 Diabetes Mellitus' },
@@ -1457,6 +1773,25 @@ I have scanned the medical reference databases, but couldn't find a direct match
                     </div>
                   )}
                 </div>
+                {diagSearch.trim() && (
+                  <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-start' }}>
+                    <button 
+                      className="btn-cu outline" 
+                      style={{ padding: '8px 14px', fontSize: '12px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 800, borderColor: 'var(--cu-primary)', color: 'var(--cu-primary)', cursor: 'pointer', background: 'white' }}
+                      onMouseDown={() => {
+                        if (diagSearch.trim()) {
+                          if (!diagnoses.includes(diagSearch.trim())) {
+                            setDiagnoses([...diagnoses, diagSearch.trim()]);
+                            addLog(`Added Custom Diagnosis: ${diagSearch.trim()}`);
+                          }
+                          setDiagSearch('');
+                        }
+                      }}
+                    >
+                      + Add Custom Assessment: "{diagSearch.trim()}"
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Prescription Medicine Table with Shortcut templates & Allergy warnings */}
@@ -1511,7 +1846,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
                   </div>
                 )}
 
-                <div className="table-responsive">
+                <div className="table-responsive" style={{ overflow: 'visible' }}>
                   <table className="elite-table">
                     <thead>
                       <tr>
@@ -1532,6 +1867,8 @@ I have scanned the medical reference databases, but couldn't find a direct match
                               type="text" 
                               value={med.name} 
                               onChange={(e) => handleMedNameChange(med.id, e.target.value)} 
+                              onFocus={() => setActiveMedFocus(med.id)}
+                              onBlur={() => setTimeout(() => setActiveMedFocus(null), 200)}
                               placeholder="e.g. Paracetamol 650"
                               style={{ 
                                 ...rxInputStyle, 
@@ -1540,6 +1877,92 @@ I have scanned the medical reference databases, but couldn't find a direct match
                                 boxShadow: hasAllergyWarning(med.name) || getStockStatus(med.name) === 'out' ? '0 0 0 3px rgba(220, 38, 38, 0.15)' : 'none'
                               }}
                             />
+                            {activeMedFocus === med.id && (() => {
+                              const typedVal = (med.name || '').trim().toLowerCase();
+                              const allSuggestionsList = Array.from(new Set([
+                                ...dbMedicines.map(m => m.name),
+                                'Paracetamol 650',
+                                'Pantocid 40',
+                                'Telmisartan 40',
+                                'Metformin 500',
+                                'Amoxicillin 500',
+                                'Aspirin 75',
+                                'Atorvastatin 10',
+                                'Azithromycin 500',
+                                'Ciprofloxacin 500',
+                                'Clopidogrel 75',
+                                'Ibuprofen 400',
+                                'Levothyroxine 50',
+                                'Losartan 50',
+                                'Montelukast 10',
+                                'Omeprazole 20',
+                                'Rosuvastatin 10'
+                              ]));
+                              
+                              const filtered = typedVal 
+                                ? allSuggestionsList.filter(m => m.toLowerCase().includes(typedVal) && m.toLowerCase() !== typedVal).slice(0, 8)
+                                : allSuggestionsList.slice(0, 8);
+
+                              if (filtered.length === 0) return null;
+
+                              return (
+                                <div className="glass-card scroll-overlay-y" style={{ 
+                                  position: 'absolute', 
+                                  top: 'calc(100% + 6px)', 
+                                  left: '0px', 
+                                  width: '380px', 
+                                  zIndex: 1200, 
+                                  padding: '8px', 
+                                  boxShadow: '0 12px 30px rgba(15, 23, 42, 0.16)', 
+                                  background: 'white', 
+                                  borderRadius: '14px', 
+                                  border: '1px solid #E2E8F0', 
+                                  maxHeight: '220px', 
+                                  overflowY: 'auto',
+                                  overscrollBehavior: 'contain',
+                                  WebkitOverflowScrolling: 'touch'
+                                }}>
+                                  {filtered.map((mName, sIdx) => (
+                                    <div 
+                                      key={sIdx} 
+                                      onMouseDown={() => {
+                                        handleMedNameChange(med.id, mName);
+                                        setActiveMedFocus(null);
+                                      }}
+                                      style={{ 
+                                        padding: '8px 12px', 
+                                        borderRadius: '8px', 
+                                        cursor: 'pointer', 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        alignItems: 'center', 
+                                        fontSize: '12.5px',
+                                        gap: '12px',
+                                        transition: 'all 0.2s ease',
+                                        background: 'transparent'
+                                      }}
+                                      className="med-dropdown-item"
+                                    >
+                                      <span style={{ fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap' }}>{mName}</span>
+                                      {medicineDefaults[mName.toLowerCase()] && (
+                                        <span style={{ 
+                                          color: 'var(--cu-primary)', 
+                                          fontSize: '9.5px', 
+                                          fontWeight: 800,
+                                          background: '#EFF6FF',
+                                          padding: '2px 8px',
+                                          borderRadius: '6px',
+                                          whiteSpace: 'nowrap',
+                                          border: '1px solid #BFDBFE'
+                                        }}>
+                                          Preset Config Available
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                             {getStockStatus(med.name) === 'out' && (
                               <div style={{ position: 'absolute', top: '100%', left: '4px', background: '#FEF2F2', color: '#DC2626', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FCA5A5', fontWeight: 800, marginTop: '2px', zIndex: 10, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <i data-lucide="alert-circle" style={{ width: '10px' }}></i> Out of Stock at Pharmacy
@@ -1668,6 +2091,42 @@ I have scanned the medical reference databases, but couldn't find a direct match
                       {test}
                     </button>
                   ))}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', maxWidth: '380px' }}>
+                  <input 
+                    type="text" 
+                    className="form-control-cu" 
+                    style={{ height: '38px', fontSize: '13px', borderRadius: '8px', padding: '0 12px', border: '1px solid #E2E8F0', background: '#F8FAFC', outline: 'none', flex: 1 }} 
+                    placeholder="Add custom lab or radiology test..." 
+                    value={customLabInput}
+                    onChange={e => setCustomLabInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && customLabInput.trim()) {
+                        e.preventDefault();
+                        if (!labs.includes(customLabInput.trim())) {
+                          setLabs([...labs, customLabInput.trim()]);
+                          addLog(`Added Custom Lab: ${customLabInput.trim()}`);
+                        }
+                        setCustomLabInput('');
+                      }
+                    }}
+                  />
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ height: '38px', padding: '0 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                    onClick={() => {
+                      if (customLabInput.trim()) {
+                        if (!labs.includes(customLabInput.trim())) {
+                          setLabs([...labs, customLabInput.trim()]);
+                          addLog(`Added Custom Lab: ${customLabInput.trim()}`);
+                        }
+                        setCustomLabInput('');
+                      }
+                    }}
+                  >
+                    + Add Test
+                  </button>
                 </div>
               </div>
 
@@ -1829,7 +2288,10 @@ I have scanned the medical reference databases, but couldn't find a direct match
                   <span style={{ fontSize: '9px', background: '#ECFDF5', color: '#047857', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>LIVE</span>
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+                <div 
+                  ref={aiChatScrollRef}
+                  style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}
+                >
                   {aiChat.map((msg, i) => {
                     return (
                       <div key={i} className={`ai-chat-bubble ${msg.role}`}>
@@ -1939,7 +2401,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
                         <i data-lucide="history" style={{ width: '12px', color: 'var(--cu-primary)' }}></i> Past Prescription Log
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto', paddingRight: '4px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto', overscrollBehavior: 'contain', paddingRight: '4px' }}>
                         {/* 1. Real DB past prescriptions */}
                         {pastPrescriptions.length > 0 && pastPrescriptions.map((rx, idx) => (
                           <div key={rx._id || idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px' }}>
@@ -2034,7 +2496,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
               </div>
 
               {/* DPDP Consent secure audit logs */}
-              <div className="smart-panel-widget" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+              <div className="smart-panel-widget" style={{ maxHeight: '200px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
                 <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: 900, color: 'var(--cu-text)', borderBottom: '1px solid #E2E8F0', paddingBottom: '6px' }}>
                   DPDP SECURE AUDIT LOGS
                 </h4>
@@ -2102,7 +2564,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
       {/* Modern PDF Prescription Design Pop-Up Dialog */}
       {showPdf && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '800px', background: 'white', padding: '40px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '800px', background: 'white', padding: '40px', maxHeight: '90vh', overflowY: 'auto', overscrollBehavior: 'contain', position: 'relative' }}>
             
             <button 
               onClick={() => setShowPdf(false)} 
@@ -2254,7 +2716,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
             </div>
 
             {/* Modal Body (Scrollable Split Container) */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: '#F8FAFC', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px' }} className="mobile-stack">
+            <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '24px', background: '#F8FAFC', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px' }} className="mobile-stack">
               
               {/* Left Column: Vertical Timeline */}
               <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>

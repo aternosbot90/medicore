@@ -25,6 +25,7 @@ const ReceptionistDashboard = () => {
 
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const [isExistingPatient, setIsExistingPatient] = useState(null); // null = choose mode, true = existing, false = new register
@@ -36,34 +37,41 @@ const ReceptionistDashboard = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Premium Custom Toast Notifications
+  const [notification, setNotification] = useState(null); // { message: '', type: 'success' | 'error' }
+  const showToast = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const openDetailsModal = (app) => {
     setSelectedAppointment({ ...app });
     setDetailsModalOpen(true);
+    setShowDeleteConfirm(false);
     setTimeout(() => window.lucide && window.lucide.createIcons(), 100);
   };
 
   const handleUpdateAppointment = async (app) => {
     try {
       await api.put(`/appointments/${app._id}`, { status: app.status, time: app.time });
-      alert("Appointment updated successfully");
+      showToast("Appointment updated successfully", "success");
       setDetailsModalOpen(false);
       fetchData();
     } catch (error) {
       console.error(error);
-      alert("Failed to update appointment");
+      showToast("Failed to update appointment", "error");
     }
   };
 
   const handleDeleteAppointment = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this appointment?")) return;
     try {
       await api.delete(`/appointments/${id}`);
-      alert("Appointment deleted");
+      showToast("Appointment deleted successfully", "success");
       setDetailsModalOpen(false);
       fetchData();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete appointment");
+      showToast("Failed to delete appointment", "error");
     }
   };
 
@@ -197,7 +205,7 @@ const ReceptionistDashboard = () => {
       } else {
         // Collect full details for new registration
         if (!formData.name || !formData.age || !formData.contact) {
-          alert("Please fill in Name, Age, and Contact Number for the new patient.");
+          showToast("Please fill in Name, Age, and Contact Number for the new patient.", "error");
           setLoading(false);
           return;
         }
@@ -216,7 +224,7 @@ const ReceptionistDashboard = () => {
       }
 
       if (!patientId) {
-        alert("Failed to resolve Patient ID. Please select or register a patient.");
+        showToast("Failed to resolve Patient ID. Please select or register a patient.", "error");
         setLoading(false);
         return;
       }
@@ -239,7 +247,7 @@ const ReceptionistDashboard = () => {
         paymentMethod: paymentMethod
       });
 
-      alert("Appointment booked successfully!");
+      showToast("Appointment booked successfully!", "success");
       setFormData({ name: '', age: '', gender: 'Male', contact: '', email: '', doctorId: '', bloodGroup: 'O+', address: '', medicalHistory: '' });
       setSelectedSymptoms([]);
       setIsExistingPatient(null);
@@ -249,7 +257,7 @@ const ReceptionistDashboard = () => {
       switchTab('appointments');
     } catch (err) {
       console.error(err);
-      alert('Failed to create appointment');
+      showToast('Failed to create appointment', 'error');
     } finally {
       setLoading(false);
     }
@@ -257,6 +265,42 @@ const ReceptionistDashboard = () => {
 
   return (
     <>
+      {notification && (
+        <div className="premium-toast" style={{
+          position: 'fixed',
+          top: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 99999,
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          border: notification.type === 'error' ? '1px solid #FEE2E2' : '1px solid #ECFDF5',
+          borderRadius: '16px',
+          padding: '12px 24px',
+          boxShadow: '0 20px 40px rgba(15, 23, 42, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          animation: 'toastSlideDown 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+        }}>
+          <div style={{
+            width: '24px',
+            height: '24px',
+            borderRadius: '50%',
+            background: notification.type === 'error' ? '#FEE2E2' : '#ECFDF5',
+            color: notification.type === 'error' ? '#EF4444' : '#10B981',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px',
+            fontWeight: 900
+          }}>
+            {notification.type === 'error' ? '✕' : '✓'}
+          </div>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#1A1D23' }}>{notification.message}</span>
+        </div>
+      )}
+
       <div className="sidebar">
         <div className="sidebar-logo">
           <i data-lucide="heart" style={{ color: 'var(--primary)', fill: 'var(--primary)' }}></i>
@@ -288,7 +332,7 @@ const ReceptionistDashboard = () => {
               Front Desk
             </span>
           </div>
-          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <div className="desktop-only-flex" style={{ flex: 1, position: 'relative', alignItems: 'center' }}>
             <i data-lucide="search" style={{ position: 'absolute', left: '16px', color: '#64748B', width: '16px' }}></i>
             <input type="text" className="search-input" placeholder="Search..." style={{ background: '#F8FAFC', border: 'none', paddingLeft: '44px', height: '40px', width: '100%', borderRadius: '10px', fontSize: '13px', fontWeight: 600 }} />
             <span className="desktop-only-flex" style={{ position: 'absolute', right: '12px', fontSize: '10px', fontWeight: 700, color: '#94A3B8', background: 'white', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0', pointerEvents: 'none' }}>Ctrl + K</span>
@@ -333,7 +377,7 @@ const ReceptionistDashboard = () => {
       <div className="main-content">
         {activeTab === 'dash' && (
           <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out' }}>
-            <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }} className="mobile-stack">
+            <div className="dashboard-header mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div>
                 <h1 style={{ fontSize: 'var(--f-h1)', fontWeight: 900, color: '#1A1D23', marginBottom: '4px' }}>Welcome, {user.name || 'Roshni'}</h1>
                 <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 700 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
@@ -345,19 +389,19 @@ const ReceptionistDashboard = () => {
 
             <div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
               <div className="kpi-card" onClick={() => switchTab('appointments')}>
-                <div className="kpi-icon-box" style={{ background: '#FFF7ED', color: '#EA580C', width: '40px', height: '40px' }}><i data-lucide="calendar" style={{ width: '18px' }}></i></div>
+                <div className="kpi-icon-box" style={{ background: '#FFF7ED', color: '#EA580C', width: '40px', height: '40px', flexShrink: 0 }}><i data-lucide="calendar" style={{ width: '18px' }}></i></div>
                 <div><div style={{ fontSize: '10px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase' }}>Apps</div><div style={{ fontSize: '20px', fontWeight: 900 }}>{appointments.length}</div></div>
               </div>
               <div className="kpi-card" onClick={() => switchTab('patients')}>
-                <div className="kpi-icon-box" style={{ background: '#F0F9FF', color: '#0284C7', width: '40px', height: '40px' }}><i data-lucide="user" style={{ width: '18px' }}></i></div>
+                <div className="kpi-icon-box" style={{ background: '#F0F9FF', color: '#0284C7', width: '40px', height: '40px', flexShrink: 0 }}><i data-lucide="user" style={{ width: '18px' }}></i></div>
                 <div><div style={{ fontSize: '10px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase' }}>Patients</div><div style={{ fontSize: '20px', fontWeight: 900 }}>{patientsList.length}</div></div>
               </div>
               <div className="kpi-card" onClick={() => switchTab('staff')}>
-                <div className="kpi-icon-box" style={{ background: '#F5F3FF', color: '#7C3AED', width: '40px', height: '40px' }}><i data-lucide="stethoscope" style={{ width: '18px' }}></i></div>
+                <div className="kpi-icon-box" style={{ background: '#F5F3FF', color: '#7C3AED', width: '40px', height: '40px', flexShrink: 0 }}><i data-lucide="stethoscope" style={{ width: '18px' }}></i></div>
                 <div><div style={{ fontSize: '10px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase' }}>Doctors</div><div style={{ fontSize: '20px', fontWeight: 900 }}>{doctors.length}</div></div>
               </div>
               <div className="kpi-card" onClick={() => switchTab('billing')}>
-                <div className="kpi-icon-box" style={{ background: '#FDF2F8', color: '#DB2777', width: '40px', height: '40px' }}><i data-lucide="wallet" style={{ width: '18px' }}></i></div>
+                <div className="kpi-icon-box" style={{ background: '#FDF2F8', color: '#DB2777', width: '40px', height: '40px', flexShrink: 0 }}><i data-lucide="wallet" style={{ width: '18px' }}></i></div>
                 <div><div style={{ fontSize: '10px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase' }}>Revenue</div><div style={{ fontSize: '20px', fontWeight: 900 }}>₹5.5k</div></div>
               </div>
             </div>
@@ -381,7 +425,7 @@ const ReceptionistDashboard = () => {
                   <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '11px', borderRadius: '10px', background: '#F1F5F9', fontWeight: 800 }}>View All</button>
                 </div>
                 
-                <div className="table-responsive" style={{ height: '220px', position: 'relative', marginBottom: '24px', overflowY: 'hidden' }}>
+                <div className="table-responsive" style={{ height: '220px', position: 'relative', marginBottom: '24px', overflowY: 'hidden', overflowX: 'auto' }}>
                   <div className="chart-glow-bg"></div>
                   <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '180px', pointerEvents: 'none' }}>
                     <div style={{ height: '33.3%', borderBottom: '1px solid #F1F5F9' }}></div>
@@ -540,7 +584,7 @@ const ReceptionistDashboard = () => {
                           <td><input type="checkbox" style={{ width: '16px', height: '16px', borderRadius: '4px' }} /></td>
                           <td style={{ color: '#64748B', fontWeight: 600 }}>#{p._id.substring(18).toUpperCase()}</td>
                           <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => switchTab('patient-details')}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => { setSelectedPatient(p); switchTab('patient-details'); }}>
                                   <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px' }}>
                                     {getInitials(p.name)}
                                   </div>
@@ -577,24 +621,28 @@ const ReceptionistDashboard = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div className="glass-card" style={{ padding: '24px' }}>
                         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', marginBottom: '24px', position: 'relative' }}>
-                            <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200" style={{ width: '80px', height: '80px', borderRadius: '16px', objectFit: 'cover' }} alt="Avatar" />
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '11px', color: '#3B82F6', fontWeight: 800, background: '#EFF6FF', padding: '2px 8px', borderRadius: '6px', display: 'inline-block', marginBottom: '4px' }}>#PT001</div>
-                                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#1A1D23', marginBottom: '4px' }}>Reyan Verol</h2>
-                                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Last Visited : 24 Jan 2025</div>
+                            <div style={{ width: '80px', height: '80px', borderRadius: '16px', background: 'var(--primary-gradient)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 900 }}>
+                              {selectedPatient ? getInitials(selectedPatient.name) : 'PT'}
                             </div>
-                            <i data-lucide="edit-3" style={{ width: '18px', color: '#64748B', cursor: 'pointer' }}></i>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '11px', color: '#3B82F6', fontWeight: 800, background: '#EFF6FF', padding: '2px 8px', borderRadius: '6px', display: 'inline-block', marginBottom: '4px' }}>
+                                  #{selectedPatient?._id?.substring(18).toUpperCase() || 'PT001'}
+                                </div>
+                                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#1A1D23', marginBottom: '4px' }}>{selectedPatient?.name || 'No Patient Selected'}</h2>
+                                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Registered : {selectedPatient?.createdAt ? new Date(selectedPatient.createdAt).toLocaleDateString() : 'N/A'}</div>
+                            </div>
                         </div>
 
                         <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '24px' }}>
                             <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#1A1D23', marginBottom: '20px' }}>Basic Information</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Added On</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>24 May 2024</span></div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>DOB</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>10 Jan 1991</span></div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Gender</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>Male</span></div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Blood Group</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>O+ve</span></div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Phone Number</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>+1 75964 25493</span></div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Total No of Bookings</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>12</span></div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Age</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>{selectedPatient?.age || 'N/A'} Yrs</span></div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Gender</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>{selectedPatient?.gender || 'N/A'}</span></div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Blood Group</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>{selectedPatient?.bloodGroup || 'N/A'}</span></div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Phone Number</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>{selectedPatient?.contact || 'N/A'}</span></div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Email</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>{selectedPatient?.email || 'N/A'}</span></div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Allergies</span><span style={{ fontWeight: 700, color: '#DC2626', background: '#FEF2F2', padding: '2px 8px', borderRadius: '4px' }}>{selectedPatient?.allergies || 'None'}</span></div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span style={{ color: '#64748B', fontWeight: 600 }}>Medical History</span><span style={{ fontWeight: 700, color: '#1A1D23' }}>{selectedPatient?.medicalHistory && selectedPatient.medicalHistory.length > 0 ? selectedPatient.medicalHistory.join(', ') : 'None'}</span></div>
                             </div>
                         </div>
                     </div>
@@ -607,28 +655,27 @@ const ReceptionistDashboard = () => {
                             <button className="btn btn-secondary" style={{ height: '32px', fontSize: '11px', padding: '0 12px', fontWeight: 800 }}>View All</button>
                         </div>
                         <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                            <div style={{ padding: '24px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                    <span style={{ background: '#EFF6FF', color: '#3B82F6', fontSize: '11px', padding: '4px 12px', borderRadius: '6px', fontWeight: 800 }}>Upcoming</span>
-                                    <div style={{ width: '32px', height: '32px', background: '#10B981', color: 'white', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i data-lucide="video" style={{ width: '16px' }}></i></div>
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-                                    <div><div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Department</div><div style={{ fontSize: '13px', fontWeight: 700 }}>Cardiology</div></div>
-                                    <div><div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Doctor</div><div style={{ fontSize: '13px', fontWeight: 700 }}>Dr. Benjamin Harris</div></div>
-                                </div>
-                                <div><div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Date & Time</div><div style={{ fontSize: '13px', fontWeight: 700 }}>21 Dec 2024, 07:00 AM</div></div>
-                            </div>
-                             <div style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                    <span style={{ background: '#F0FDF4', color: '#10B981', fontSize: '11px', padding: '4px 12px', borderRadius: '6px', fontWeight: 800 }}>Completed</span>
-                                    <div style={{ width: '32px', height: '32px', background: '#3B82F6', color: 'white', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i data-lucide="phone" style={{ width: '16px' }}></i></div>
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-                                    <div><div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Department</div><div style={{ fontSize: '13px', fontWeight: 700 }}>Radiology</div></div>
-                                    <div><div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Doctor</div><div style={{ fontSize: '13px', fontWeight: 700 }}>Dr. Laura Mitchell</div></div>
-                                </div>
-                                <div><div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Date & Time</div><div style={{ fontSize: '13px', fontWeight: 700 }}>15 Jan 2025, 10:35 AM</div></div>
-                            </div>
+                            {appointments.filter(app => app.patientId?._id === selectedPatient?._id || app.patientId === selectedPatient?._id).length === 0 ? (
+                              <div style={{ colSpan: 2, color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', padding: '20px 0', gridColumn: 'span 2' }}>
+                                No appointments found for this patient.
+                              </div>
+                            ) : appointments.filter(app => app.patientId?._id === selectedPatient?._id || app.patientId === selectedPatient?._id).map(app => (
+                              <div key={app._id} style={{ padding: '24px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                      <span style={{ 
+                                        background: app.status === 'upcoming' || app.status === 'Scheduled' ? '#EFF6FF' : '#F0FDF4', 
+                                        color: app.status === 'upcoming' || app.status === 'Scheduled' ? '#3B82F6' : '#10B981', 
+                                        fontSize: '11px', padding: '4px 12px', borderRadius: '6px', fontWeight: 800 
+                                      }}>{app.status}</span>
+                                      <div style={{ width: '32px', height: '32px', background: 'var(--primary)', color: 'white', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i data-lucide="calendar" style={{ width: '16px' }}></i></div>
+                                  </div>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                                      <div><div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Symptom / Reason</div><div style={{ fontSize: '13px', fontWeight: 700 }}>{app.reason || 'General Checkup'}</div></div>
+                                      <div><div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Doctor</div><div style={{ fontSize: '13px', fontWeight: 700 }}>{app.doctorId?.name || app.doctor || 'Unknown Doctor'}</div></div>
+                                  </div>
+                                  <div><div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Date & Time</div><div style={{ fontSize: '13px', fontWeight: 700 }}>{app.date ? new Date(app.date).toLocaleDateString() : 'N/A'} at {app.time}</div></div>
+                              </div>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -1476,11 +1523,11 @@ const ReceptionistDashboard = () => {
 
       {/* APPOINTMENT DETAILS MODAL */}
       {detailsModalOpen && selectedAppointment && (
-        <div className="details-modal-overlay" onClick={() => setDetailsModalOpen(false)}>
+        <div className="details-modal-overlay" onClick={() => { setDetailsModalOpen(false); setShowDeleteConfirm(false); }}>
           <div className="details-modal-card" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#1A1D23' }}>Appointment Details</h2>
-              <button className="btn-close" onClick={() => setDetailsModalOpen(false)}><i data-lucide="x"></i></button>
+              <button className="btn-close" onClick={() => { setDetailsModalOpen(false); setShowDeleteConfirm(false); }}><i data-lucide="x"></i></button>
             </div>
             
             <div style={{ marginBottom: '32px' }}>
@@ -1524,9 +1571,19 @@ const ReceptionistDashboard = () => {
               </div>
             </div>
             
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button className="btn" style={{ background: '#FEE2E2', color: '#EF4444', fontWeight: 800, padding: '0 20px', borderRadius: '10px', height: '44px' }} onClick={() => handleDeleteAppointment(selectedAppointment._id)}>Delete</button>
-              <button className="btn btn-primary" style={{ fontWeight: 800, padding: '0 24px', borderRadius: '10px', height: '44px' }} onClick={() => handleUpdateAppointment(selectedAppointment)}>Save Changes</button>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', alignItems: 'center', minHeight: '44px' }}>
+              {!showDeleteConfirm ? (
+                <>
+                  <button className="btn" style={{ background: '#FEE2E2', color: '#EF4444', fontWeight: 800, padding: '0 20px', borderRadius: '10px', height: '44px' }} onClick={() => setShowDeleteConfirm(true)}>Delete</button>
+                  <button className="btn btn-primary" style={{ fontWeight: 800, padding: '0 24px', borderRadius: '10px', height: '44px' }} onClick={() => handleUpdateAppointment(selectedAppointment)}>Save Changes</button>
+                </>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', animation: 'fadeIn 0.2s ease-out' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#EF4444' }}>Are you sure?</span>
+                  <button className="btn" style={{ background: '#F1F5F9', color: '#64748B', fontWeight: 800, padding: '0 16px', borderRadius: '10px', height: '44px', fontSize: '13px' }} onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+                  <button className="btn" style={{ background: '#EF4444', color: 'white', fontWeight: 800, padding: '0 20px', borderRadius: '10px', height: '44px', fontSize: '13px' }} onClick={() => { handleDeleteAppointment(selectedAppointment._id); setShowDeleteConfirm(false); }}>Confirm Delete</button>
+                </div>
+              )}
             </div>
           </div>
         </div>
