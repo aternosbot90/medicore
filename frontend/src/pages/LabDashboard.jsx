@@ -2,6 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
+// Safeguard React DOM reconciliation against external DOM mutations (e.g. Lucide CDN node replacement)
+if (typeof window !== 'undefined') {
+  const originalRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function(child) {
+    if (child.parentNode !== this) {
+      return child;
+    }
+    return originalRemoveChild.call(this, child);
+  };
+
+  const originalInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function(newNode, referenceNode) {
+    if (referenceNode && referenceNode.parentNode !== this) {
+      return originalInsertBefore.call(this, newNode, this.firstChild);
+    }
+    return originalInsertBefore.call(this, newNode, referenceNode);
+  };
+}
+
 const LabDashboard = () => {
   const [activeTab, setActiveTab] = useState('lab-dash');
   const [activeSampleForEntry, setActiveSampleForEntry] = useState(null);

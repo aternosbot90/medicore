@@ -2,6 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
+// Safeguard React DOM reconciliation against external DOM mutations (e.g. Lucide CDN node replacement)
+if (typeof window !== 'undefined') {
+  const originalRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function(child) {
+    if (child.parentNode !== this) {
+      return child;
+    }
+    return originalRemoveChild.call(this, child);
+  };
+
+  const originalInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function(newNode, referenceNode) {
+    if (referenceNode && referenceNode.parentNode !== this) {
+      return originalInsertBefore.call(this, newNode, this.firstChild);
+    }
+    return originalInsertBefore.call(this, newNode, referenceNode);
+  };
+}
+
 const ReceptionistDashboard = () => {
   const [activeTab, setActiveTab] = useState('dash');
   const navigate = useNavigate();
@@ -158,10 +177,13 @@ const ReceptionistDashboard = () => {
 
 
   useEffect(() => {
-    if (window.lucide) {
-      window.lucide.createIcons();
-    }
-  }, [activeTab, selectedSymptoms, showProfileMenu, showDateFilter]);
+    const timer = setTimeout(() => {
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  });
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -856,7 +878,7 @@ const ReceptionistDashboard = () => {
                           </span>
                         ) : (
                           <span style={{ fontSize: '14px', fontWeight: 800, color: '#166534' }}>
-                            📝 Registering a New First-Time Patient Profile
+                            <i data-lucide="edit-3" style={{ width: '15px', height: '15px', color: '#166534', verticalAlign: 'middle', marginRight: '6px' }}></i> Registering a New First-Time Patient Profile
                           </span>
                         )}
                       </div>
