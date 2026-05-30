@@ -5,44 +5,45 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-// Seeding helper for default lab inventory items
-const seedDefaultLabInventory = async () => {
+// Seeding helper for default lab inventory items (scoped to tenant)
+const seedDefaultLabInventory = async (tenantId) => {
   try {
-    const count = await LabInventory.countDocuments();
+    const count = await LabInventory.countDocuments({ tenantId });
     if (count === 0) {
       const defaults = [
-        { name: 'Hematology Reagent', category: 'Reagents', stock: 12, unit: 'L', threshold: 20, lastRestock: '12 May', status: 'Low Stock' },
-        { name: 'Vacuum Tubes (Red)', category: 'Consumables', stock: 240, unit: 'units', threshold: 1000, lastRestock: '05 May', status: 'Low Stock' },
-        { name: 'Glucose Test Strips', category: 'Consumables', stock: 5000, unit: 'units', threshold: 2000, lastRestock: '10 May', status: 'Healthy' },
-        { name: 'COVID-19 Swab Kits', category: 'Consumables', stock: 80, unit: 'units', threshold: 20, lastRestock: '14 May', status: 'Healthy' }
+        { tenantId, name: 'Hematology Reagent', category: 'Reagents', stock: 12, unit: 'L', threshold: 20, lastRestock: '12 May', status: 'Low Stock' },
+        { tenantId, name: 'Vacuum Tubes (Red)', category: 'Consumables', stock: 240, unit: 'units', threshold: 1000, lastRestock: '05 May', status: 'Low Stock' },
+        { tenantId, name: 'Glucose Test Strips', category: 'Consumables', stock: 5000, unit: 'units', threshold: 2000, lastRestock: '10 May', status: 'Healthy' },
+        { tenantId, name: 'COVID-19 Swab Kits', category: 'Consumables', stock: 80, unit: 'units', threshold: 20, lastRestock: '14 May', status: 'Healthy' }
       ];
       // Save items sequentially to trigger pre-save middleware status calculation
       for (const item of defaults) {
         await LabInventory.create(item);
       }
-      console.log('Default Laboratory inventory seeded successfully.');
+      console.log(`Default Laboratory inventory seeded successfully for tenant: ${tenantId}`);
     }
   } catch (err) {
     console.error('Failed to seed Lab Inventory', err);
   }
 };
 
-// Get all lab inventory items
+// Get all lab inventory items (scoped to tenant)
 router.get('/', async (req, res) => {
   try {
-    await seedDefaultLabInventory();
-    const inventory = await LabInventory.find().sort({ createdAt: -1 });
+    await seedDefaultLabInventory(req.tenantId);
+    const inventory = await LabInventory.find({ tenantId: req.tenantId }).sort({ createdAt: -1 });
     res.json(inventory);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Add a new lab inventory item
+// Add a new lab inventory item (scoped to tenant)
 router.post('/', async (req, res) => {
   try {
     const { name, category, stock, unit, threshold } = req.body;
     const newItem = await LabInventory.create({
+      tenantId: req.tenantId,
       name,
       category,
       stock: Number(stock) || 0,
@@ -56,11 +57,11 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update a lab inventory item (Edit or Restock)
+// Update a lab inventory item (Edit or Restock, scoped to tenant)
 router.put('/:id', async (req, res) => {
   try {
     const { name, category, stock, unit, threshold, isRestock, addQty } = req.body;
-    const item = await LabInventory.findById(req.params.id);
+    const item = await LabInventory.findOne({ _id: req.params.id, tenantId: req.tenantId });
     if (!item) return res.status(404).json({ error: 'Item not found' });
 
     if (name !== undefined) item.name = name;
@@ -82,10 +83,10 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete a lab inventory item
+// Delete a lab inventory item (scoped to tenant)
 router.delete('/:id', async (req, res) => {
   try {
-    const item = await LabInventory.findByIdAndDelete(req.params.id);
+    const item = await LabInventory.findOneAndDelete({ _id: req.params.id, tenantId: req.tenantId });
     if (!item) return res.status(404).json({ error: 'Item not found' });
     res.json({ message: 'Item deleted successfully' });
   } catch (error) {

@@ -6,19 +6,20 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-// Get all patients
+// Get all patients (scoped to tenant)
 router.get('/', async (req, res) => {
   try {
-    const patients = await Patient.find().sort({ createdAt: -1 });
+    const patients = await Patient.find({ tenantId: req.tenantId }).sort({ createdAt: -1 });
     res.json(patients);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Create a new patient
+// Create a new patient (scoped to tenant)
 router.post('/', async (req, res) => {
   try {
+    req.body.tenantId = req.tenantId;
     const patient = await Patient.create(req.body);
     res.status(201).json(patient);
   } catch (error) {
@@ -26,16 +27,16 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Get a single patient
+// Get a single patient (scoped to tenant)
 router.get('/:id', async (req, res) => {
   try {
     let patient = null;
-    try { patient = await Patient.findById(req.params.id); } catch(e) {}
+    try { patient = await Patient.findOne({ _id: req.params.id, tenantId: req.tenantId }); } catch(e) {}
     if (!patient) {
       try {
-        const user = await User.findById(req.params.id);
+        const user = await User.findOne({ _id: req.params.id, tenantId: req.tenantId });
         if (user && user.role === 'patient') {
-          patient = await Patient.findOne({ contact: user.staff_id });
+          patient = await Patient.findOne({ contact: user.staff_id, tenantId: req.tenantId });
         }
       } catch(e) {}
     }
@@ -46,17 +47,17 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Update patient details (profile & settings)
+// Update patient details (profile & settings, scoped to tenant)
 router.put('/:id', async (req, res) => {
   const { name, age, gender, contact, address, bloodGroup, allergies, medicalHistory } = req.body;
   try {
     let patient = null;
-    try { patient = await Patient.findById(req.params.id); } catch(e) {}
+    try { patient = await Patient.findOne({ _id: req.params.id, tenantId: req.tenantId }); } catch(e) {}
     if (!patient) {
       try {
-        const userObj = await User.findById(req.params.id);
+        const userObj = await User.findOne({ _id: req.params.id, tenantId: req.tenantId });
         if (userObj && userObj.role === 'patient') {
-          patient = await Patient.findOne({ contact: userObj.staff_id });
+          patient = await Patient.findOne({ contact: userObj.staff_id, tenantId: req.tenantId });
         }
       } catch(e) {}
     }
@@ -77,7 +78,7 @@ router.put('/:id', async (req, res) => {
     await patient.save();
 
     // Sync with User authentication table
-    const user = await User.findOne({ staff_id: oldContact });
+    const user = await User.findOne({ staff_id: oldContact, tenantId: req.tenantId });
     if (user) {
       user.name = patient.name;
       user.staff_id = patient.contact;
@@ -90,25 +91,25 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Update patient password
+// Update patient password (scoped to tenant)
 router.put('/:id/password', async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const bcrypt = require('bcrypt');
 
   try {
     let patient = null;
-    try { patient = await Patient.findById(req.params.id); } catch(e) {}
+    try { patient = await Patient.findOne({ _id: req.params.id, tenantId: req.tenantId }); } catch(e) {}
     if (!patient) {
       try {
-        const userObj = await User.findById(req.params.id);
+        const userObj = await User.findOne({ _id: req.params.id, tenantId: req.tenantId });
         if (userObj && userObj.role === 'patient') {
-          patient = await Patient.findOne({ contact: userObj.staff_id });
+          patient = await Patient.findOne({ contact: userObj.staff_id, tenantId: req.tenantId });
         }
       } catch(e) {}
     }
     if (!patient) return res.status(404).json({ error: 'Patient not found' });
 
-    const user = await User.findOne({ staff_id: patient.contact });
+    const user = await User.findOne({ staff_id: patient.contact, tenantId: req.tenantId });
     if (!user) return res.status(404).json({ error: 'Authentication user not found' });
 
     // Verify current password

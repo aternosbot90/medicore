@@ -25,6 +25,10 @@ const Login = () => {
   const [signUpAllergies, setSignUpAllergies] = useState('');
   const [signUpHistory, setSignUpHistory] = useState('');
 
+  // Multi-Tenant SaaS states
+  const [tenantId, setTenantId] = useState('city_hospital');
+  const [customTenantId, setCustomTenantId] = useState('');
+
   // Password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -80,15 +84,20 @@ const Login = () => {
     setLoading(true);
 
     try {
+      const resolvedTenant = tenantId === 'custom' ? customTenantId.trim().toLowerCase() : tenantId;
       const response = await api.post('/auth/login', {
         staff_id: staffId,
-        password: password
+        password: password,
+        tenantId: resolvedTenant || 'city_hospital'
+      }, {
+        headers: { 'x-tenant-id': resolvedTenant || 'city_hospital' }
       });
 
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('tenantId', user.tenantId || resolvedTenant || 'city_hospital');
 
       // Redirect based on role
       switch (user.role) {
@@ -119,6 +128,7 @@ const Login = () => {
 
     setLoading(true);
     try {
+      const resolvedTenant = tenantId === 'custom' ? customTenantId.trim().toLowerCase() : tenantId;
       const response = await api.post('/auth/register', {
         firstName,
         lastName,
@@ -129,7 +139,10 @@ const Login = () => {
         gender: signUpGender,
         bloodGroup: signUpBloodGroup,
         allergies: signUpAllergies,
-        history: signUpHistory
+        history: signUpHistory,
+        tenantId: resolvedTenant || 'city_hospital'
+      }, {
+        headers: { 'x-tenant-id': resolvedTenant || 'city_hospital' }
       });
 
       const { token, user } = response.data;
@@ -139,6 +152,7 @@ const Login = () => {
       setTimeout(() => {
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('tenantId', user.tenantId || resolvedTenant || 'city_hospital');
         navigate('/patient');
       }, 1500);
 
@@ -187,6 +201,36 @@ const Login = () => {
           /* SIGN IN FORM */
           <form onSubmit={handleLogin}>
             <div className="form-group" style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '8px', display: 'block' }}>Hospital Branch / Tenant</label>
+              <select 
+                className="form-control" 
+                style={{ height: '46px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '14px', fontSize: '14px', fontWeight: 600, width: '100%', background: 'white' }}
+                value={tenantId}
+                onChange={(e) => setTenantId(e.target.value)}
+              >
+                <option value="city_hospital">City General Hospital (Default)</option>
+                <option value="metro_clinic">Metro Health Clinic</option>
+                <option value="downtown_medical">Downtown Medical Center</option>
+                <option value="custom">-- Enter Custom Hospital ID --</option>
+              </select>
+            </div>
+
+            {tenantId === 'custom' && (
+              <div className="form-group" style={{ marginBottom: '20px', animation: 'fadeIn 0.2s ease-out' }}>
+                <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '8px', display: 'block' }}>Custom Hospital ID / Key</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="e.g. city_hospital"
+                  style={{ height: '46px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '14px', fontSize: '14px', fontWeight: 600 }}
+                  value={customTenantId}
+                  onChange={(e) => setCustomTenantId(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+
+            <div className="form-group" style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '8px', display: 'block' }}>Staff ID / Contact Number</label>
               <input 
                 type="text" 
@@ -228,7 +272,36 @@ const Login = () => {
         ) : (
           /* SIGN UP FORM */
           <form onSubmit={handleSignUp}>
-            
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Hospital Branch / Tenant</label>
+              <select 
+                className="form-control" 
+                style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '10px', fontSize: '13px', fontWeight: 600, width: '100%', background: 'white' }}
+                value={tenantId}
+                onChange={(e) => setTenantId(e.target.value)}
+              >
+                <option value="city_hospital">City General Hospital (Default)</option>
+                <option value="metro_clinic">Metro Health Clinic</option>
+                <option value="downtown_medical">Downtown Medical Center</option>
+                <option value="custom">-- Enter Custom Hospital ID --</option>
+              </select>
+            </div>
+
+            {tenantId === 'custom' && (
+              <div className="form-group" style={{ marginBottom: '16px', animation: 'fadeIn 0.2s ease-out' }}>
+                <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Custom Hospital ID / Key</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="e.g. city_hospital"
+                  style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '12px', fontSize: '13px', fontWeight: 600 }}
+                  value={customTenantId}
+                  onChange={(e) => setCustomTenantId(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>First Name</label>
@@ -543,26 +616,35 @@ const Login = () => {
                     setLoading(true);
                     try {
                       const contactNum = account.name === 'John Doe' ? '9998887771' : '9998887772';
+                      const resolvedTenant = tenantId === 'custom' ? customTenantId.trim().toLowerCase() : tenantId;
                       try {
                         const regRes = await api.post('/auth/register', {
                           firstName: account.name.split(' ')[0],
                           lastName: account.name.split(' ')[1],
                           email: account.email,
                           contact: contactNum,
-                          password: 'google_oauth_password'
+                          password: 'google_oauth_password',
+                          tenantId: resolvedTenant || 'city_hospital'
+                        }, {
+                          headers: { 'x-tenant-id': resolvedTenant || 'city_hospital' }
                         });
                         const { token, user } = regRes.data;
                         localStorage.setItem('token', token);
                         localStorage.setItem('user', JSON.stringify(user));
+                        localStorage.setItem('tenantId', user.tenantId || resolvedTenant || 'city_hospital');
                         navigate('/patient');
                       } catch (regErr) {
                         const loginRes = await api.post('/auth/login', {
                           staff_id: contactNum,
-                          password: 'google_oauth_password'
+                          password: 'google_oauth_password',
+                          tenantId: resolvedTenant || 'city_hospital'
+                        }, {
+                          headers: { 'x-tenant-id': resolvedTenant || 'city_hospital' }
                         });
                         const { token, user } = loginRes.data;
                         localStorage.setItem('token', token);
                         localStorage.setItem('user', JSON.stringify(user));
+                        localStorage.setItem('tenantId', user.tenantId || resolvedTenant || 'city_hospital');
                         navigate('/patient');
                       }
                     } catch (gErr) {

@@ -3,9 +3,10 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Patient = require('../models/Patient');
+const tenantMiddleware = require('../middleware/tenantMiddleware');
 const router = express.Router();
 
-router.post('/login', async (req, res) => {
+router.post('/login', tenantMiddleware, async (req, res) => {
   const { staff_id, password } = req.body;
 
   if (!staff_id || !password) {
@@ -13,22 +14,22 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    let user = await User.findOne({ staff_id });
+    let user = await User.findOne({ staff_id, tenantId: req.tenantId });
     
     // If not a staff member, check if it's a Patient using their contact number as ID
     if (!user) {
-      const patient = await Patient.findOne({ contact: staff_id });
+      const patient = await Patient.findOne({ contact: staff_id, tenantId: req.tenantId });
       if (patient) {
         // For patients, we'll bypass password check for now, or assume 'password'
         const token = jwt.sign(
-          { id: patient._id, role: 'patient', name: patient.name },
+          { id: patient._id, role: 'patient', name: patient.name, tenantId: req.tenantId },
           process.env.JWT_SECRET || 'medicore_secret_key',
           { expiresIn: '24h' }
         );
         return res.json({
           message: 'Login successful',
           token,
-          user: { id: patient._id, role: 'patient', name: patient.name }
+          user: { id: patient._id, role: 'patient', name: patient.name, tenantId: req.tenantId }
         });
       }
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -40,9 +41,15 @@ router.post('/login', async (req, res) => {
     }
 
     // Match JWT payload ID to Patient document ID if role is patient
-    let tokenPayload = { id: user._id, staff_id: user.staff_id, role: user.role, name: user.name };
+    let tokenPayload = { 
+      id: user._id, 
+      staff_id: user.staff_id, 
+      role: user.role, 
+      name: user.name,
+      tenantId: req.tenantId
+    };
     if (user.role === 'patient') {
-      const patient = await Patient.findOne({ contact: user.staff_id });
+      const patient = await Patient.findOne({ contact: user.staff_id, tenantId: req.tenantId });
       if (patient) {
         tokenPayload.id = patient._id;
       }
@@ -63,7 +70,8 @@ router.post('/login', async (req, res) => {
         role: user.role,
         name: user.name,
         specialty: user.specialty,
-        isSetupComplete: user.isSetupComplete
+        isSetupComplete: user.isSetupComplete,
+        tenantId: req.tenantId
       }
     });
   } catch (err) {
@@ -71,21 +79,22 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Get all doctors (publicly accessible to authenticated staff)
-router.get('/doctors', async (req, res) => {
+// Get all doctors (publicly accessible to authenticated staff, scoped to tenant)
+router.get('/doctors', tenantMiddleware, async (req, res) => {
   try {
-    const doctors = await User.find({ role: 'doctor' }, 'name specialty available');
+    const doctors = await User.find({ role: 'doctor', tenantId: req.tenantId }, 'name specialty available');
     res.json(doctors);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Update profile (e.g. for first time setup)
-router.put('/profile/:id', async (req, res) => {
+// Update profile (e.g. for first time setup, scoped to tenant)
+router.put('/profile/:id', tenantMiddleware, async (req, res) => {
   try {
     const { name, specialty, isSetupComplete } = req.body;
-    const user = await User.findByIdAndUpdate(req.params.id, 
+    const user = await User.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenantId }, 
       { name, specialty, isSetupComplete }, 
       { returnDocument: 'after' }
     );
@@ -96,7 +105,8 @@ router.put('/profile/:id', async (req, res) => {
       role: user.role,
       name: user.name,
       specialty: user.specialty,
-      isSetupComplete: user.isSetupComplete
+      isSetupComplete: user.isSetupComplete,
+      tenantId: user.tenantId
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -104,7 +114,7 @@ router.put('/profile/:id', async (req, res) => {
 });
 
 // Patient registration public endpoint
-router.post('/register', async (req, res) => {
+router.post('/register', tenantMiddleware, async (req, res) => {
   const { firstName, lastName, email, contact, password, age, gender, bloodGroup, allergies, history } = req.body;
 
   if (!firstName || !lastName || !email || !contact || !password || !age || !gender || !bloodGroup) {
@@ -112,10 +122,10 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // Check if user already exists
-    const existingUser = await User.findOne({ staff_id: contact });
+    // Check if user already exists in this tenant
+    const existingUser = await User.findOne({ staff_id: contact, tenantId: req.tenantId });
     if (existingUser) {
-      return res.status(400).json({ error: 'A user with this mobile/contact number already exists' });
+      return res.status(400).json({ error: 'A user with this mobile/contact number already exists at this hospital' });
     }
 
     // Hash password
@@ -124,8 +134,9 @@ router.post('/register', async (req, res) => {
 
     const name = `${firstName} ${lastName}`;
 
-    // Create User record for authentication
+    // Create User record for authentication (scoped to tenant)
     await User.create({
+      tenantId: req.tenantId,
       staff_id: contact,
       password_hash,
       role: 'patient',
@@ -133,8 +144,9 @@ router.post('/register', async (req, res) => {
       isSetupComplete: true
     });
 
-    // Create linked Patient record for clinical data
+    // Create linked Patient record for clinical data (scoped to tenant)
     const newPatient = await Patient.create({
+      tenantId: req.tenantId,
       name,
       age: parseInt(age) || 30,
       gender: gender || 'Male',
@@ -146,9 +158,9 @@ router.post('/register', async (req, res) => {
       medicalHistory: history ? [history] : []
     });
 
-    // Generate JWT
+    // Generate JWT including tenantId
     const token = jwt.sign(
-      { id: newPatient._id, role: 'patient', name },
+      { id: newPatient._id, role: 'patient', name, tenantId: req.tenantId },
       process.env.JWT_SECRET || 'medicore_secret_key',
       { expiresIn: '24h' }
     );
@@ -160,7 +172,8 @@ router.post('/register', async (req, res) => {
         id: newPatient._id,
         staff_id: contact,
         role: 'patient',
-        name
+        name,
+        tenantId: req.tenantId
       }
     });
   } catch (error) {

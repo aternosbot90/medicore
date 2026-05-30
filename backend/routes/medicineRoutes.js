@@ -5,38 +5,38 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-// Seed helper
-const seedDefaultMedicines = async () => {
+// Seed helper (scoped to tenant)
+const seedDefaultMedicines = async (tenantId) => {
   try {
-    const count = await Medicine.countDocuments();
+    const count = await Medicine.countDocuments({ tenantId });
     if (count === 0) {
       const defaults = [
-        { name: "Paracetamol 650mg", category: "Pain Relief", sku: "PAR-650", stock: 250, unit: "Strip", mrp: 25.00, status: "In Stock", expiry: "30/06/2025" },
-        { name: "Azithromycin 500mg", category: "Antibiotic", sku: "AZI-500", stock: 0, unit: "Strip", mrp: 55.00, status: "Out of Stock", expiry: "--" },
-        { name: "Cetirizine 10mg", category: "Anti-Allergic", sku: "CET-10", stock: 12, unit: "Strip", mrp: 18.00, status: "Low Stock", expiry: "15/08/2024" },
-        { name: "Pantoprazole 40mg", category: "Antacid", sku: "PAN-40", stock: 145, unit: "Strip", mrp: 45.00, status: "In Stock", expiry: "22/12/2025" },
-        { name: "Amoxicillin 250mg", category: "Antibiotic", sku: "AMX-250", stock: 50, unit: "Capsule", mrp: 35.00, status: "In Stock", expiry: "10/11/2024" }
+        { tenantId, name: "Paracetamol 650mg", category: "Pain Relief", sku: "PAR-650", stock: 250, unit: "Strip", mrp: 25.00, status: "In Stock", expiry: "30/06/2025" },
+        { tenantId, name: "Azithromycin 500mg", category: "Antibiotic", sku: "AZI-500", stock: 0, unit: "Strip", mrp: 55.00, status: "Out of Stock", expiry: "--" },
+        { tenantId, name: "Cetirizine 10mg", category: "Anti-Allergic", sku: "CET-10", stock: 12, unit: "Strip", mrp: 18.00, status: "Low Stock", expiry: "15/08/2024" },
+        { tenantId, name: "Pantoprazole 40mg", category: "Antacid", sku: "PAN-40", stock: 145, unit: "Strip", mrp: 45.00, status: "In Stock", expiry: "22/12/2025" },
+        { tenantId, name: "Amoxicillin 250mg", category: "Antibiotic", sku: "AMX-250", stock: 50, unit: "Capsule", mrp: 35.00, status: "In Stock", expiry: "10/11/2024" }
       ];
       await Medicine.insertMany(defaults);
-      console.log('Default medicines seeded successfully.');
+      console.log(`Default medicines seeded successfully for tenant: ${tenantId}`);
     }
   } catch (err) {
     console.error('Failed to seed medicines', err);
   }
 };
 
-// Get all medicines
+// Get all medicines (scoped to tenant)
 router.get('/', async (req, res) => {
   try {
-    await seedDefaultMedicines();
-    const medicines = await Medicine.find().sort({ createdAt: -1 });
+    await seedDefaultMedicines(req.tenantId);
+    const medicines = await Medicine.find({ tenantId: req.tenantId }).sort({ createdAt: -1 });
     res.json(medicines);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Add a new medicine
+// Add a new medicine (scoped to tenant)
 router.post('/', async (req, res) => {
   try {
     // Determine status based on stock level
@@ -48,6 +48,7 @@ router.post('/', async (req, res) => {
       status = 'Low Stock';
     }
     
+    req.body.tenantId = req.tenantId;
     const medicine = await Medicine.create({
       ...req.body,
       status
@@ -58,7 +59,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update a medicine (Edit or Restock)
+// Update a medicine (Edit or Restock, scoped to tenant)
 router.put('/:id', async (req, res) => {
   try {
     let updateData = { ...req.body };
@@ -73,7 +74,11 @@ router.put('/:id', async (req, res) => {
       }
     }
     
-    const medicine = await Medicine.findByIdAndUpdate(req.params.id, updateData, { returnDocument: 'after' });
+    const medicine = await Medicine.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenantId }, 
+      updateData, 
+      { returnDocument: 'after' }
+    );
     if (!medicine) return res.status(404).json({ error: 'Medicine not found' });
     res.json(medicine);
   } catch (error) {
@@ -81,10 +86,10 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete a medicine
+// Delete a medicine (scoped to tenant)
 router.delete('/:id', async (req, res) => {
   try {
-    const medicine = await Medicine.findByIdAndDelete(req.params.id);
+    const medicine = await Medicine.findOneAndDelete({ _id: req.params.id, tenantId: req.tenantId });
     if (!medicine) return res.status(404).json({ error: 'Medicine not found' });
     res.json({ message: 'Medicine deleted successfully' });
   } catch (error) {

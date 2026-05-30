@@ -10,6 +10,7 @@ const verifyToken = (req, res, next) => {
   jwt.verify(tokenString, process.env.JWT_SECRET || 'medicore_secret_key', (err, decoded) => {
     if (err) return res.status(401).json({ error: 'Unauthorized' });
     req.user = decoded;
+    req.tenantId = decoded.tenantId || 'city_hospital';
     next();
   });
 };

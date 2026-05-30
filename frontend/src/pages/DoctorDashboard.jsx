@@ -1805,6 +1805,53 @@ I have scanned the medical reference databases, but couldn't find a direct match
           </a>
         </nav>
         
+        {/* Bottom Doctor Profile Card Popover */}
+        {showProfileMenu && (
+          <div 
+            className="glass-card" 
+            style={{ 
+              position: 'absolute', 
+              bottom: '80px', 
+              left: '16px', 
+              width: '208px', 
+              zIndex: 3000, 
+              padding: '8px', 
+              boxShadow: '0 -10px 40px rgba(0,0,0,0.1)', 
+              background: 'white',
+              borderRadius: '12px',
+              border: '1px solid #E2E8F0',
+              animation: 'slideUp 0.2s ease-out'
+            }}
+          >
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid #F1F5F9', marginBottom: '6px' }}>
+              <div style={{ fontWeight: 800, fontSize: '13px', color: '#0F172A' }}>{docProfile.name}</div>
+              <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600 }}>{docProfile.specialty}</div>
+            </div>
+            <div 
+              style={{ 
+                padding: '10px 12px', 
+                borderRadius: '8px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                fontSize: '13px', 
+                fontWeight: 700, 
+                color: '#DC2626', 
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#FEF2F2'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              onClick={() => {
+                setShowProfileMenu(false);
+                handleLogout();
+              }}
+            >
+              <i data-lucide="log-out" style={{ width: '16px', height: '16px' }}></i> Logout
+            </div>
+          </div>
+        )}
+
         {/* Bottom Doctor Profile Card */}
         <div className="sidebar-profile-card" onClick={() => setShowProfileMenu(!showProfileMenu)}>
           <img 

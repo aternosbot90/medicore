@@ -646,7 +646,24 @@ const PatientDashboard = () => {
                   <div className="payment-grid" style={{ marginBottom: '20px' }}>
                     {['UPI', 'Card', 'Banking'].map(method => (
                       <div key={method} className={`pay-btn ${paymentMethod === method ? 'active' : ''}`} onClick={() => setPaymentMethod(method)} style={{ fontSize: '12px', padding: '10px' }}>
-                        {paymentMethod === method && <i data-lucide="check-circle" style={{ width: '14px' }}></i>} {method}
+                        {paymentMethod === method && (
+                          <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            width="14" 
+                            height="14" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2.5" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            className="lucide lucide-check-circle"
+                            style={{ flexShrink: 0 }}
+                          >
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                            <polyline points="22 4 12 14.01 9 11.01" />
+                          </svg>
+                        )} {method}
                       </div>
                     ))}
                   </div>

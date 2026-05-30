@@ -6,10 +6,10 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-// Get all prescriptions (filter by status or patientId)
+// Get all prescriptions (filter by status or patientId, scoped to tenant)
 router.get('/', async (req, res) => {
   try {
-    const query = {};
+    const query = { tenantId: req.tenantId };
     if (req.query.status) query.status = req.query.status;
     if (req.query.patientId) query.patientId = req.query.patientId;
 
@@ -23,9 +23,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create a prescription
+// Create a prescription (scoped to tenant)
 router.post('/', async (req, res) => {
   try {
+    req.body.tenantId = req.tenantId;
     const prescription = await Prescription.create(req.body);
     res.status(201).json(prescription);
   } catch (error) {
@@ -33,11 +34,11 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update status (e.g. Dispensed) and decrement stock
+// Update status (e.g. Dispensed) and decrement stock (scoped to tenant)
 router.put('/:id', async (req, res) => {
   try {
     const rxId = req.params.id;
-    const existingRx = await Prescription.findById(rxId);
+    const existingRx = await Prescription.findOne({ _id: rxId, tenantId: req.tenantId });
     if (!existingRx) return res.status(404).json({ error: 'Prescription not found' });
 
     // Transitioning from Pending to Dispensed
@@ -47,7 +48,8 @@ router.put('/:id', async (req, res) => {
           // Extract base medicine name (e.g., matching "Paracetamol" or "Cetirizine")
           const cleanName = item.medicine.split(' ')[0].trim();
           const med = await Medicine.findOne({
-            name: { $regex: new RegExp(cleanName, 'i') }
+            name: { $regex: new RegExp(cleanName, 'i') },
+            tenantId: req.tenantId
           });
 
           if (med) {
@@ -66,7 +68,11 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    const prescription = await Prescription.findByIdAndUpdate(rxId, req.body, { returnDocument: 'after' });
+    const prescription = await Prescription.findOneAndUpdate(
+      { _id: rxId, tenantId: req.tenantId }, 
+      req.body, 
+      { returnDocument: 'after' }
+    );
     res.json(prescription);
   } catch (error) {
     res.status(400).json({ error: error.message });

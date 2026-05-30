@@ -5,10 +5,10 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-// Get all appointments (optionally filter by doctorId or patientId)
+// Get all appointments (optionally filter by doctorId or patientId, scoped to tenant)
 router.get('/', async (req, res) => {
   try {
-    const query = {};
+    const query = { tenantId: req.tenantId };
     if (req.query.doctorId) query.doctorId = req.query.doctorId;
     if (req.query.patientId) query.patientId = req.query.patientId;
 
@@ -22,9 +22,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create an appointment
+// Create an appointment (scoped to tenant)
 router.post('/', async (req, res) => {
   try {
+    req.body.tenantId = req.tenantId;
     const appointment = await Appointment.create(req.body);
     res.status(201).json(appointment);
   } catch (error) {
@@ -32,10 +33,14 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update appointment status or add notes/diagnosis
+// Update appointment status or add notes/diagnosis (scoped to tenant)
 router.put('/:id', async (req, res) => {
   try {
-    const appointment = await Appointment.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' });
+    const appointment = await Appointment.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenantId }, 
+      req.body, 
+      { returnDocument: 'after' }
+    );
     if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
     res.json(appointment);
   } catch (error) {
@@ -43,20 +48,20 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete all appointments (for debugging/cleaning bad data)
+// Delete all appointments (for debugging/cleaning bad data, scoped to tenant)
 router.delete('/clear-all', async (req, res) => {
   try {
-    await Appointment.deleteMany({});
+    await Appointment.deleteMany({ tenantId: req.tenantId });
     res.json({ message: 'All appointments cleared' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Delete an appointment
+// Delete an appointment (scoped to tenant)
 router.delete('/:id', async (req, res) => {
   try {
-    const appointment = await Appointment.findByIdAndDelete(req.params.id);
+    const appointment = await Appointment.findOneAndDelete({ _id: req.params.id, tenantId: req.tenantId });
     if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
     res.json({ message: 'Appointment deleted' });
   } catch (error) {

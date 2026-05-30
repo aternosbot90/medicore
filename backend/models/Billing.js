@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const billingSchema = new mongoose.Schema({
+  tenantId: { type: String, required: true, default: 'city_hospital', index: true },
   patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
   appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
   items: [{

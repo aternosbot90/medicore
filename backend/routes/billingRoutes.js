@@ -5,10 +5,10 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-// Get bills
+// Get bills (scoped to tenant)
 router.get('/', async (req, res) => {
   try {
-    const query = {};
+    const query = { tenantId: req.tenantId };
     if (req.query.patientId) query.patientId = req.query.patientId;
 
     const bills = await Billing.find(query)
@@ -20,9 +20,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create bill
+// Create bill (scoped to tenant)
 router.post('/', async (req, res) => {
   try {
+    req.body.tenantId = req.tenantId;
     const bill = await Billing.create(req.body);
     res.status(201).json(bill);
   } catch (error) {
@@ -30,10 +31,14 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update bill
+// Update bill (scoped to tenant)
 router.put('/:id', async (req, res) => {
   try {
-    const bill = await Billing.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' });
+    const bill = await Billing.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenantId }, 
+      req.body, 
+      { returnDocument: 'after' }
+    );
     if (!bill) return res.status(404).json({ error: 'Bill not found' });
     res.json(bill);
   } catch (error) {

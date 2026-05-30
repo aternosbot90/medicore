@@ -5,10 +5,10 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-// Get lab requests
+// Get lab requests (scoped to tenant)
 router.get('/', async (req, res) => {
   try {
-    const query = {};
+    const query = { tenantId: req.tenantId };
     if (req.query.status) query.status = req.query.status;
     if (req.query.patientId) query.patientId = req.query.patientId;
 
@@ -22,9 +22,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create lab request
+// Create lab request (scoped to tenant)
 router.post('/', async (req, res) => {
   try {
+    req.body.tenantId = req.tenantId;
     const request = await LabRequest.create(req.body);
     res.status(201).json(request);
   } catch (error) {
@@ -32,10 +33,14 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update lab request (add results, change status)
+// Update lab request (add results, change status, scoped to tenant)
 router.put('/:id', async (req, res) => {
   try {
-    const request = await LabRequest.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' });
+    const request = await LabRequest.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenantId }, 
+      req.body, 
+      { returnDocument: 'after' }
+    );
     if (!request) return res.status(404).json({ error: 'Request not found' });
     res.json(request);
   } catch (error) {

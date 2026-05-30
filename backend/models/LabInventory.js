@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const labInventorySchema = new mongoose.Schema({
+  tenantId: { type: String, required: true, default: 'city_hospital', index: true },
   name: { type: String, required: true },
   category: { type: String, required: true }, // 'Reagents', 'Consumables', 'Equipment'
   stock: { type: Number, required: true, default: 0 },
