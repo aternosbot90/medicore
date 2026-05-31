@@ -200,35 +200,7 @@ const Login = () => {
         {!isSignUp ? (
           /* SIGN IN FORM */
           <form onSubmit={handleLogin}>
-            <div className="form-group" style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '8px', display: 'block' }}>Hospital Branch / Tenant</label>
-              <select 
-                className="form-control" 
-                style={{ height: '46px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '14px', fontSize: '14px', fontWeight: 600, width: '100%', background: 'white' }}
-                value={tenantId}
-                onChange={(e) => setTenantId(e.target.value)}
-              >
-                <option value="city_hospital">City General Hospital (Default)</option>
-                <option value="metro_clinic">Metro Health Clinic</option>
-                <option value="downtown_medical">Downtown Medical Center</option>
-                <option value="custom">-- Enter Custom Hospital ID --</option>
-              </select>
-            </div>
 
-            {tenantId === 'custom' && (
-              <div className="form-group" style={{ marginBottom: '20px', animation: 'fadeIn 0.2s ease-out' }}>
-                <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '8px', display: 'block' }}>Custom Hospital ID / Key</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  placeholder="e.g. city_hospital"
-                  style={{ height: '46px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '14px', fontSize: '14px', fontWeight: 600 }}
-                  value={customTenantId}
-                  onChange={(e) => setCustomTenantId(e.target.value)}
-                  required
-                />
-              </div>
-            )}
 
             <div className="form-group" style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '8px', display: 'block' }}>Staff ID / Contact Number</label>
@@ -272,35 +244,7 @@ const Login = () => {
         ) : (
           /* SIGN UP FORM */
           <form onSubmit={handleSignUp}>
-            <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Hospital Branch / Tenant</label>
-              <select 
-                className="form-control" 
-                style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '10px', fontSize: '13px', fontWeight: 600, width: '100%', background: 'white' }}
-                value={tenantId}
-                onChange={(e) => setTenantId(e.target.value)}
-              >
-                <option value="city_hospital">City General Hospital (Default)</option>
-                <option value="metro_clinic">Metro Health Clinic</option>
-                <option value="downtown_medical">Downtown Medical Center</option>
-                <option value="custom">-- Enter Custom Hospital ID --</option>
-              </select>
-            </div>
 
-            {tenantId === 'custom' && (
-              <div className="form-group" style={{ marginBottom: '16px', animation: 'fadeIn 0.2s ease-out' }}>
-                <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px', display: 'block' }}>Custom Hospital ID / Key</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  placeholder="e.g. city_hospital"
-                  style={{ height: '42px', borderRadius: '8px', border: '1px solid #CBD5E1', paddingLeft: '12px', fontSize: '13px', fontWeight: 600 }}
-                  value={customTenantId}
-                  onChange={(e) => setCustomTenantId(e.target.value)}
-                  required
-                />
-              </div>
-            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
               <div className="form-group" style={{ margin: 0 }}>
