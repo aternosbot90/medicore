@@ -97,4 +97,17 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Get medicine by SKU / Barcode (scoped to tenant)
+router.get('/barcode/:sku', async (req, res) => {
+  try {
+    const medicine = await Medicine.findOne({ tenantId: req.tenantId, sku: req.params.sku });
+    if (!medicine) {
+      return res.status(404).json({ error: 'Medicine not found with this barcode' });
+    }
+    res.json(medicine);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

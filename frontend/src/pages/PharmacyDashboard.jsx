@@ -98,6 +98,283 @@ const PharmacyDashboard = () => {
   });
   const [currentId, setCurrentId] = useState(null);
 
+  // Barcode / Webcam scanning states
+  const [isWebcamScanning, setIsWebcamScanning] = useState(false);
+  const [webcamScanner, setWebcamScanner] = useState(null);
+  const [scanDebugLog, setScanDebugLog] = useState('');
+
+  // Auto cleanup webcam on modal close
+  useEffect(() => {
+    if (!showMedicineModal) {
+      if (webcamScanner) {
+        try {
+          if (window.Quagga) window.Quagga.stop();
+        } catch (e) { console.error(e); }
+        setIsWebcamScanning(false);
+        setWebcamScanner(null);
+      } else {
+        setIsWebcamScanning(false);
+      }
+    }
+  }, [showMedicineModal]);
+
+  const playBeep = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // 800 Hz beep
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.12); // Short beep duration
+    } catch (e) {
+      console.warn("Audio Context beep error", e);
+    }
+  };
+
+  const handleBarcodeFound = async (barcode) => {
+    const trimmed = barcode.trim();
+    if (!trimmed) return;
+
+    setFormData(prev => ({ ...prev, sku: trimmed }));
+    setSuccessMessage(`Barcode scanned: ${trimmed}. Looking up product...`);
+
+    // Step 1: Check local database first
+    try {
+      const response = await api.get(`/medicines/barcode/${trimmed}`);
+      if (response.data && response.data.name) {
+        setFormData({
+          name: response.data.name,
+          category: response.data.category,
+          sku: response.data.sku,
+          stock: '',
+          unit: response.data.unit,
+          mrp: response.data.mrp,
+          expiry: response.data.expiry
+        });
+        setSuccessMessage(`✅ Found in inventory: ${response.data.name}`);
+        setTimeout(() => setSuccessMessage(''), 4000);
+        return;
+      }
+    } catch (err) {
+      console.log("Not in local DB, trying public APIs...");
+    }
+
+    // Step 2: Try Open Food Facts API (free, no key needed)
+    try {
+      const offRes = await fetch(`https://world.openfoodfacts.org/api/v0/product/${trimmed}.json`);
+      const offData = await offRes.json();
+      if (offData.status === 1 && offData.product) {
+        const p = offData.product;
+        const productName = p.product_name || p.product_name_en || '';
+        const brand = p.brands || '';
+        const categories = p.categories || '';
+        const fullName = brand ? `${brand} - ${productName}` : productName;
+        
+        if (fullName) {
+          setFormData(prev => ({
+            ...prev,
+            name: fullName,
+            sku: trimmed,
+            category: categories.split(',')[0]?.trim() || prev.category || 'General'
+          }));
+          setSuccessMessage(`✅ Found online: ${fullName}`);
+          setTimeout(() => setSuccessMessage(''), 4000);
+          return;
+        }
+      }
+    } catch (e) {
+      console.log("Open Food Facts lookup failed:", e.message);
+    }
+
+    // Step 3: Try UPC ItemDB API (free, no key needed)
+    try {
+      const upcRes = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${trimmed}`);
+      const upcData = await upcRes.json();
+      if (upcData.items && upcData.items.length > 0) {
+        const item = upcData.items[0];
+        const productName = item.title || '';
+        const brand = item.brand || '';
+        const category = item.category || '';
+        const fullName = brand && productName ? `${brand} - ${productName}` : (productName || brand);
+
+        if (fullName) {
+          setFormData(prev => ({
+            ...prev,
+            name: fullName,
+            sku: trimmed,
+            category: category.split(',')[0]?.trim() || prev.category || 'General'
+          }));
+          setSuccessMessage(`✅ Found online: ${fullName}`);
+          setTimeout(() => setSuccessMessage(''), 4000);
+          return;
+        }
+      }
+    } catch (e) {
+      console.log("UPC ItemDB lookup failed:", e.message);
+    }
+
+    // Step 4: No lookup found — barcode set, user fills rest
+    setSuccessMessage(`Barcode ${trimmed} not found in any database. Please fill details manually.`);
+    setTimeout(() => setSuccessMessage(''), 5000);
+  };
+
+  const handleSkuKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      playBeep();
+      handleBarcodeFound(e.target.value);
+    }
+  };
+
+  const handleZoomChange = (zoomVal) => {
+    try {
+      const videoElem = document.querySelector("#barcode-webcam-reader video");
+      if (videoElem && videoElem.srcObject) {
+        const stream = videoElem.srcObject;
+        const tracks = stream.getVideoTracks();
+        if (tracks && tracks.length > 0) {
+          const track = tracks[0];
+          const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+          if (capabilities.zoom) {
+            const min = capabilities.zoom.min || 1;
+            const max = capabilities.zoom.max || 4;
+            const constrainedVal = Math.max(min, Math.min(zoomVal, max));
+            track.applyConstraints({
+              advanced: [{ zoom: constrainedVal }]
+            }).catch(e => console.log("Failed to apply zoom constraints", e));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Zoom constraint failed", e);
+    }
+  };
+
+  const initWebcamReader = () => {
+    setIsWebcamScanning(true);
+    setScanDebugLog('Initializing QuaggaJS...');
+    setTimeout(() => {
+      try {
+        if (!window.Quagga) {
+          setScanDebugLog('ERROR: QuaggaJS not loaded!');
+          return;
+        }
+
+        const targetEl = document.getElementById('barcode-webcam-reader');
+        if (!targetEl) {
+          setScanDebugLog('ERROR: Container not found!');
+          return;
+        }
+
+        let frameCount = 0;
+        let detected = false;
+
+        window.Quagga.init({
+          inputStream: {
+            name: "Live",
+            type: "LiveStream",
+            target: targetEl,
+            constraints: {
+              facingMode: "environment",
+              width: { ideal: 640 },
+              height: { ideal: 480 }
+            }
+          },
+          decoder: {
+            readers: [
+              "ean_reader",
+              "ean_8_reader",
+              "code_128_reader",
+              "code_39_reader",
+              "upc_reader",
+              "upc_e_reader"
+            ]
+          },
+          locate: true,
+          frequency: 10
+        }, function(err) {
+          if (err) {
+            console.error('Quagga init error:', err);
+            setScanDebugLog('Camera error: ' + (err.message || err));
+            setIsWebcamScanning(false);
+            return;
+          }
+          setScanDebugLog('Camera active! Scanning for EAN-13, EAN-8, CODE-128, UPC...');
+          window.Quagga.start();
+          setWebcamScanner({ type: 'quagga' });
+
+          // Style the video to fill container
+          const video = targetEl.querySelector('video');
+          if (video) {
+            video.style.width = '100%';
+            video.style.height = '100%';
+            video.style.objectFit = 'cover';
+            video.style.borderRadius = '12px';
+          }
+          const canvas = targetEl.querySelector('canvas');
+          if (canvas) {
+            canvas.style.display = 'none';
+          }
+        });
+
+        window.Quagga.onProcessed(function(result) {
+          frameCount++;
+          if (frameCount % 50 === 0) {
+            setScanDebugLog(`Frame ${frameCount}: Scanning... (no barcode yet)`);
+          }
+        });
+
+        window.Quagga.onDetected(function(result) {
+          if (detected) return;
+          const code = result.codeResult.code;
+          const format = result.codeResult.format;
+          if (!code) return;
+          detected = true;
+          setScanDebugLog(`✅ DECODED: "${code}" (${format})`);
+          playBeep();
+          handleBarcodeFound(code);
+          try {
+            window.Quagga.stop();
+          } catch(e) {}
+          setIsWebcamScanning(false);
+          setWebcamScanner(null);
+        });
+
+      } catch (err) {
+        console.error(err);
+        setScanDebugLog('Error: ' + err.message);
+      }
+    }, 200);
+  };
+
+  const startWebcamScanner = () => {
+    if (!window.Quagga) {
+      const script = document.createElement('script');
+      script.src = "https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js";
+      script.async = true;
+      script.onload = () => initWebcamReader();
+      script.onerror = () => alert('Failed to load scanner library.');
+      document.body.appendChild(script);
+    } else {
+      initWebcamReader();
+    }
+  };
+
+  const stopWebcamScanner = () => {
+    try {
+      if (window.Quagga) window.Quagga.stop();
+    } catch (e) { console.error(e); }
+    setIsWebcamScanning(false);
+    setWebcamScanner(null);
+  };
+
   // Search input state
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -1663,8 +1940,23 @@ const PharmacyDashboard = () => {
       {/* Unified Manage Medicine Modal */}
       {showMedicineModal && (
         <div className="modal-overlay" style={{ display: 'flex', zIndex: 1300, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowMedicineModal(false)}>
-          <div className="modal-box glass-card" style={{ width: '90%', maxWidth: '500px', background: 'white', padding: '32px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', position: 'relative' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <div className="modal-box glass-card" style={{ width: '90%', maxWidth: '500px', maxHeight: '90vh', background: 'white', padding: '28px 28px 20px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <style>{`
+              .modal-scroll-body::-webkit-scrollbar {
+                width: 6px;
+              }
+              .modal-scroll-body::-webkit-scrollbar-track {
+                background: transparent;
+              }
+              .modal-scroll-body::-webkit-scrollbar-thumb {
+                background: #CBD5E1;
+                border-radius: 3px;
+              }
+              .modal-scroll-body::-webkit-scrollbar-thumb:hover {
+                background: #94A3B8;
+              }
+            `}</style>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexShrink: 0 }}>
               <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#1A1D23', margin: 0 }}>
                 {modalMode === 'add' ? 'Add New Medicine' : modalMode === 'restock' ? 'Restock Medicine' : 'Edit Medicine Details'}
               </h2>
@@ -1673,9 +1965,102 @@ const PharmacyDashboard = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveMedicine}>
-              {modalMode !== 'restock' ? (
+            <form onSubmit={handleSaveMedicine} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              {/* Scrollable Form Fields Body */}
+              <div className="modal-scroll-body" style={{ overflowY: 'auto', flex: 1, paddingRight: '8px', marginBottom: '16px', display: 'flex', flexDirection: 'column' }}>
+                {modalMode !== 'restock' ? (
                 <>
+                  {/* Premium Scanner Toolbar */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center' }}>
+                    <button 
+                      type="button" 
+                      onClick={isWebcamScanning ? stopWebcamScanner : startWebcamScanner} 
+                      style={{ 
+                        flex: 1, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        gap: '8px', 
+                        height: '42px', 
+                        borderRadius: '10px', 
+                        border: '1px solid #E2E8F0', 
+                        background: isWebcamScanning ? '#FFF1F2' : '#F0F9FF', 
+                        color: isWebcamScanning ? '#E11D48' : '#0284C7', 
+                        fontWeight: 700, 
+                        fontSize: '12.5px', 
+                        cursor: 'pointer', 
+                        transition: 'all 0.2s' 
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      {isWebcamScanning ? 'Stop Camera Scanning' : 'Scan with Webcam'}
+                    </button>
+                    
+                    <button 
+                      type="button" 
+                      onClick={() => handleBarcodeFound(Math.random() > 0.5 ? 'PAR-650' : 'PAN-40')} 
+                      style={{ 
+                        padding: '0 16px', 
+                        height: '42px', 
+                        borderRadius: '10px', 
+                        border: '1px solid #E2E8F0', 
+                        background: '#F0FDF4', 
+                        color: '#16A34A', 
+                        fontWeight: 700, 
+                        fontSize: '12.5px', 
+                        cursor: 'pointer', 
+                        transition: 'all 0.2s' 
+                      }}
+                      title="Simulate scanning a registered medicine (Paracetamol/Pantoprazole)"
+                    >
+                      🧪 Test Scan Pre-fill
+                    </button>
+                  </div>
+
+                  {/* Live Webcam Scanner Reader Viewport */}
+                  {isWebcamScanning && (
+                    <div style={{ marginBottom: '16px', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', background: '#F8FAFC', flexShrink: 0 }}>
+                      <style>{`
+                        @keyframes scanLineMove {
+                          0% { top: 25%; }
+                          50% { top: 75%; }
+                          100% { top: 25%; }
+                        }
+                      `}</style>
+                      <div style={{ padding: '8px 12px', background: '#F1F5F9', fontSize: '11px', fontWeight: 700, color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Webcam Barcode Scan View</span>
+                        <span style={{ color: '#EF4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', display: 'inline-block', animation: 'pulse 1s infinite' }}></span> Active Camera
+                        </span>
+                      </div>
+                      {/* Resilient video track container wrapper */}
+                      <div style={{ width: '100%', minHeight: '220px', background: '#000', position: 'relative' }}>
+                        {/* Pure mount container for html5-qrcode video track */}
+                        <div id="barcode-webcam-reader" style={{ width: '100%' }}></div>
+                        
+                        {/* Glowing red laser scanning animation line overlays cleanly on top */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '10%',
+                          width: '80%',
+                          height: '2px',
+                          background: '#EF4444',
+                          boxShadow: '0 0 10px #EF4444, 0 0 4px #EF4444',
+                          zIndex: 10,
+                          pointerEvents: 'none',
+                          animation: 'scanLineMove 2.2s infinite ease-in-out'
+                        }}></div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Debug status bar */}
+                  {scanDebugLog && (
+                    <div style={{ padding: '8px 12px', marginBottom: '12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', fontSize: '11px', fontWeight: 600, color: '#92400E', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                      🔬 {scanDebugLog}
+                    </div>
+                  )}
+
                   <div className="form-group" style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#64748B' }}>Medicine Name</label>
                     <input type="text" className="form-control" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required style={{ width: '100%', padding: '12px', border: '1px solid #E2E8F0', borderRadius: '10px', fontSize: '13px', outline: 'none' }} />
@@ -1695,8 +2080,17 @@ const PharmacyDashboard = () => {
                     </div>
 
                     <div className="form-group">
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#64748B' }}>SKU Code</label>
-                      <input type="text" className="form-control" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} required style={{ width: '100%', padding: '12px', border: '1px solid #E2E8F0', borderRadius: '10px', fontSize: '13px', outline: 'none' }} />
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#64748B' }}>SKU Code (or scan physical gun)</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        value={formData.sku} 
+                        onChange={e => setFormData({...formData, sku: e.target.value})} 
+                        onKeyDown={handleSkuKeyDown}
+                        placeholder="Scan or Enter barcode"
+                        required 
+                        style={{ width: '100%', padding: '12px', border: '1px solid #E2E8F0', borderRadius: '10px', fontSize: '13px', outline: 'none' }} 
+                      />
                     </div>
                   </div>
 
@@ -1733,7 +2127,10 @@ const PharmacyDashboard = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '16px' }}>
+              </div>
+
+              {/* Sticky Action Footer */}
+              <div style={{ display: 'flex', gap: '16px', paddingTop: '12px', borderTop: '1px solid #F1F5F9', flexShrink: 0 }}>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center', height: '48px', borderRadius: '12px', border: '1px solid #E2E8F0', background: 'transparent', color: '#64748B', fontWeight: 700, cursor: 'pointer' }} onClick={() => setShowMedicineModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', height: '48px', borderRadius: '12px', background: '#2563EB', border: 'none', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
                   {modalMode === 'add' ? 'Add Medicine' : modalMode === 'restock' ? 'Verify Restock' : 'Save Changes'}
