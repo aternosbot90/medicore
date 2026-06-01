@@ -57,6 +57,7 @@ class ErrorBoundary extends React.Component {
 
 const DoctorDashboard = () => {
   const [activeTab, setActiveTab] = useState('consultations'); // Default to Consultations page on login
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isSetupComplete, setIsSetupComplete] = useState(true);
   const navigate = useNavigate();
@@ -381,6 +382,7 @@ const DoctorDashboard = () => {
 
   // Safe cleanup for page and tab switching
   useEffect(() => {
+    document.body.classList.remove('modal-open');
     document.body.style.overflow = '';
     document.documentElement.style.overflow = '';
   }, [activeTab]);
@@ -417,15 +419,12 @@ const DoctorDashboard = () => {
   // Freeze background page scroll when any Modal Dialog is active
   useEffect(() => {
     if (showPdf || previewFile || showTimelineModal) {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
     } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      document.body.classList.remove('modal-open');
     }
     return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      document.body.classList.remove('modal-open');
     };
   }, [showPdf, previewFile, showTimelineModal, activeTab]);
 
@@ -1808,9 +1807,12 @@ I have scanned the medical reference databases, but couldn't find a direct match
           opacity: 1 !important;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           .sidebar {
-            display: none !important;
+            z-index: 2000 !important;
+          }
+          .sidebar.mobile-open {
+            z-index: 2010 !important;
           }
           .top-nav {
             margin-left: 0 !important;
@@ -1822,6 +1824,43 @@ I have scanned the medical reference databases, but couldn't find a direct match
           }
           .mobile-stack {
             grid-template-columns: 1fr !important;
+          }
+
+          /* Filter Bar Premium Responsiveness */
+          .doctor-filter-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+            margin-bottom: 16px !important;
+          }
+          .doctor-search-wrapper {
+            width: 100% !important;
+          }
+          .doctor-filter-actions {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+            width: 100% !important;
+          }
+          .doctor-filter-select, .doctor-filter-btn {
+            width: 100% !important;
+            padding: 10px 12px !important;
+            font-size: 13px !important;
+            height: 42px !important;
+            box-sizing: border-box !important;
+          }
+          .status-select {
+            grid-column: span 2 !important;
+          }
+          .gender-select {
+            grid-column: span 1 !important;
+          }
+          .age-select {
+            grid-column: span 1 !important;
+          }
+          .doctor-filter-btn {
+            grid-column: span 2 !important;
+            justify-content: center !important;
           }
         }
       `}</style>
@@ -1863,45 +1902,45 @@ I have scanned the medical reference databases, but couldn't find a direct match
       )}
 
       {/* Main Sidebar */}
-      <div className="sidebar">
+      <div className={"sidebar " + (mobileSidebarOpen ? "mobile-open" : "")} data-lenis-prevent>
         <div className="sidebar-logo">
           <i data-lucide="stethoscope"></i><span>MediCore</span>
         </div>
         <nav>
-          <a href="#" className={`nav-link ${activeTab === 'dash' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('dash'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'dash' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('dash'); setMobileSidebarOpen(false); }}>
             <i data-lucide="layout-grid"></i> Dashboard
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'appointments' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('appointments'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'appointments' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('appointments'); setMobileSidebarOpen(false); }}>
             <i data-lucide="calendar"></i> Appointments
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'consultations' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('consultations'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'consultations' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('consultations'); setMobileSidebarOpen(false); }}>
             <i data-lucide="activity"></i> Consultations
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'labs' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('labs'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'labs' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('labs'); setMobileSidebarOpen(false); }}>
             <i data-lucide="flask-conical"></i> Lab reports
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'prescriptions' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('prescriptions'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'prescriptions' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('prescriptions'); setMobileSidebarOpen(false); }}>
             <i data-lucide="file-text"></i> Prescriptions
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('settings'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('settings'); setMobileSidebarOpen(false); }}>
             <i data-lucide="settings"></i> Settings
           </a>
 
           {/* DYNAMIC COVERAGE INTEGRATION LINKS */}
           {(Object.keys(coverageState || {}).some(k => k.startsWith('rc-') && coverageState[k]?.on)) && (
-            <a href="#" className={`nav-link ${activeTab === 'receptionist_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('receptionist_cover'); }} style={{ color: '#E11D48', fontWeight: 800 }}>
+            <a href="#" className={`nav-link ${activeTab === 'receptionist_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('receptionist_cover'); setMobileSidebarOpen(false); }} style={{ color: '#E11D48', fontWeight: 800 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
               Receptionist Cover
             </a>
           )}
           {(Object.keys(coverageState || {}).some(k => k.startsWith('lt-') && coverageState[k]?.on)) && (
-            <a href="#" className={`nav-link ${activeTab === 'lab_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab_cover'); }} style={{ color: '#059669', fontWeight: 800 }}>
+            <a href="#" className={`nav-link ${activeTab === 'lab_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab_cover'); setMobileSidebarOpen(false); }} style={{ color: '#059669', fontWeight: 800 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M6 18H18"/><path d="M10 14H14"/><path d="M12 2v20"/><path d="M18 10H6"/></svg>
               Lab Cover
             </a>
           )}
           {(Object.keys(coverageState || {}).some(k => (k.startsWith('ph-') || k === 'dr-stockview') && coverageState[k]?.on)) && (
-            <a href="#" className={`nav-link ${activeTab === 'pharmacy_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('pharmacy_cover'); }} style={{ color: '#2563EB', fontWeight: 800 }}>
+            <a href="#" className={`nav-link ${activeTab === 'pharmacy_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('pharmacy_cover'); setMobileSidebarOpen(false); }} style={{ color: '#2563EB', fontWeight: 800 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M12 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
               Pharmacy Cover
             </a>
@@ -1956,7 +1995,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
         )}
 
         {/* Bottom Doctor Profile Card */}
-        <div className="sidebar-profile-card" onClick={() => setShowProfileMenu(!showProfileMenu)}>
+        <div className="sidebar-profile-card" onClick={(e) => { e.stopPropagation(); setShowProfileMenu(!showProfileMenu); }}>
           <img 
             className="sidebar-profile-avatar" 
             src={docProfile.avatar} 
@@ -1971,8 +2010,36 @@ I have scanned the medical reference databases, but couldn't find a direct match
         </div>
       </div>
 
+      {/* Mobile Sidebar Backdrop Overlay */}
+      {mobileSidebarOpen && (
+        <div className="mobile-backdrop" onClick={() => setMobileSidebarOpen(false)} />
+      )}
+
       {/* Top Navbar Header */}
-      <div className="top-nav" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px', zIndex: 1100, overflow: 'visible' }}>
+      <div className="top-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', zIndex: 1100, overflow: 'visible' }}>
+        {/* Hamburger Mobile Menu Toggle Button */}
+        <button 
+          className="mobile-menu-toggle"
+          onClick={(e) => {
+            e.stopPropagation();
+            setMobileSidebarOpen(!mobileSidebarOpen);
+          }}
+          style={{
+            display: 'none',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#475569',
+            padding: '8px',
+            borderRadius: '8px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'background-color 0.2s',
+            marginRight: '8px'
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
         {/* Global Patient Search (Optimized & Absolute Overlaid Dropdown) */}
         <div 
           ref={searchContainerRef}
@@ -2168,7 +2235,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
 
             {/* SUBTAB: APPOINTMENT */}
             {receptionistSubTab === 'appt' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
+              <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
                 <div className="glass-card" style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
                   <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginBottom: '20px' }}>Scheduled Slots</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -2247,7 +2314,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
                   showToastNotification(`Patient "${name}" registered successfully! UHID: MC-2026-${Math.floor(1000 + Math.random()*9000)} generated.`, 'success');
                   e.target.reset();
                 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                     <div>
                       <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Full Name</label>
                       <input type="text" name="regName" style={{ width: '100%', height: '40px', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0 12px', fontSize: '13px', fontWeight: 650, outline: 'none' }} required placeholder="e.g. Priya Nair" />
@@ -2258,7 +2325,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                     <div>
                       <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Age (Years)</label>
                       <input type="number" style={{ width: '100%', height: '40px', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0 12px', fontSize: '13px', fontWeight: 650, outline: 'none' }} defaultValue="28" />
@@ -3318,10 +3385,10 @@ I have scanned the medical reference databases, but couldn't find a direct match
             <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out', padding: '24px' }}>
               
               {/* Filter Row */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+              <div className="doctor-filter-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                 
                 {/* Search patients */}
-                <div style={{ position: 'relative', width: '320px' }}>
+                <div className="doctor-search-wrapper" style={{ position: 'relative', width: '320px' }}>
                   <i data-lucide="search" style={{ position: 'absolute', left: '16px', top: '14px', width: '16px', height: '16px', color: '#94A3B8' }}></i>
                   <input 
                     type="text" 
@@ -3344,12 +3411,13 @@ I have scanned the medical reference databases, but couldn't find a direct match
                 </div>
 
                 {/* Dropdowns & Add Patient button */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div className="doctor-filter-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   
                   {/* Status Dropdown */}
                   <select 
                     value={consStatus} 
                     onChange={e => { setConsStatus(e.target.value); setConsPage(1); }}
+                    className="doctor-filter-select status-select"
                     style={{ 
                       padding: '12px 16px', 
                       borderRadius: '12px', 
@@ -3371,6 +3439,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
                   <select 
                     value={consGender} 
                     onChange={e => { setConsGender(e.target.value); setConsPage(1); }}
+                    className="doctor-filter-select gender-select"
                     style={{ 
                       padding: '12px 16px', 
                       borderRadius: '12px', 
@@ -3392,6 +3461,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
                   <select 
                     value={consAgeGroup} 
                     onChange={e => { setConsAgeGroup(e.target.value); setConsPage(1); }}
+                    className="doctor-filter-select age-select"
                     style={{ 
                       padding: '12px 16px', 
                       borderRadius: '12px', 
@@ -3413,6 +3483,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
                   {/* Add New Patient Button */}
                   <button 
                     onClick={() => setShowAddPatientModal(true)}
+                    className="doctor-filter-btn"
                     style={{ 
                       display: 'flex', 
                       alignItems: 'center', 

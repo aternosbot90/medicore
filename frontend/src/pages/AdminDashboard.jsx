@@ -76,6 +76,7 @@ const AdminDashboard = () => {
   const [pmSelectedStaffId, setPmSelectedStaffId] = useState(null);
   const [pmPendingChanges, setPmPendingChanges] = useState({}); // { permId: { on, type, expiresIn } }
   const [pmReason, setPmReason] = useState('');
+  const [rosterSearch, setRosterSearch] = useState('');
 
   const [staff, setStaff] = useState([
     {
@@ -337,11 +338,6 @@ const AdminDashboard = () => {
 
   // Centralized Scroll Lock Manager (State-Free, Layout-Stable, zero-flicker)
   useEffect(() => {
-    const sidebar = sidebarRef.current;
-    if (!sidebar) return;
-
-    let isHoveringSidebar = false;
-
     const updateScrollLock = () => {
       const modalExists = document.querySelector('.modal-backdrop') || 
                           document.querySelector('.modal') || 
@@ -351,39 +347,23 @@ const AdminDashboard = () => {
                           showNewPatientModal || 
                           showEditPatientModal;
       
-      if (modalExists || isHoveringSidebar) {
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
+      if (modalExists) {
+        document.body.classList.add('modal-open');
       } else {
-        document.body.style.overflow = '';
-        document.documentElement.style.overflow = '';
+        document.body.classList.remove('modal-open');
       }
     };
-
-    const handleMouseEnter = () => {
-      isHoveringSidebar = true;
-      updateScrollLock();
-    };
-
-    const handleMouseLeave = () => {
-      isHoveringSidebar = false;
-      updateScrollLock();
-    };
-
-    sidebar.addEventListener('mouseenter', handleMouseEnter);
-    sidebar.addEventListener('mouseleave', handleMouseLeave);
 
     // Watch dynamically for modal mounts/unmounts in the body to recalculate states instantly
     const observer = new MutationObserver(updateScrollLock);
     observer.observe(document.body, { childList: true, subtree: true });
 
+    // Initial check
+    updateScrollLock();
+
     return () => {
-      sidebar.removeEventListener('mouseenter', handleMouseEnter);
-      sidebar.removeEventListener('mouseleave', handleMouseLeave);
       observer.disconnect();
-      // Safely reset scroll locks
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      document.body.classList.remove('modal-open');
     };
   }, [showAddStaffModal, showRevokeConfirm, showNewApptModal, showNewPatientModal, showEditPatientModal]);
 
@@ -392,13 +372,13 @@ const AdminDashboard = () => {
     let sub = "";
 
     if (activeTab === 'dashboard') { main = "Dashboard"; sub = "today's overview"; }
-    else if (activeTab === 'supply') { main = "Approvals"; sub = "pending requests"; }
+    else if (activeTab === 'supply') { main = "Alerts & Tasks"; sub = "system issues"; }
     else if (activeTab === 'approvals') { main = "Approvals"; sub = "pending requests"; }
-    else if (activeTab === 'appointments') { main = "Approvals"; sub = "pending requests"; }
-    else if (activeTab === 'patients') { main = "Approvals"; sub = "pending requests"; }
+    else if (activeTab === 'appointments') { main = "Appointments"; sub = "clinic schedule"; }
+    else if (activeTab === 'patients') { main = "Patients"; sub = "roster & records"; }
     else if (activeTab === 'workforce') { main = "Workforce"; sub = "hospital accounts"; }
     else if (activeTab === 'financials') { main = "Revenue"; sub = "ledger & analytics"; }
-    else if (activeTab === 'audit') { main = "Approvals"; sub = "pending requests"; }
+    else if (activeTab === 'audit') { main = "Audit Logs"; sub = "security trail"; }
     else if (activeTab === 'subscription') { main = "Subscription"; sub = "enterprise license"; }
     else if (activeTab === 'maintenance') { main = "Maintenance"; sub = "system services"; }
     else if (activeTab === 'updates') { main = "Updates"; sub = "patches & hotfixes"; }
@@ -741,6 +721,11 @@ const AdminDashboard = () => {
     <div className="admin-dashboard-container">
       {/* 100% Mockup Consistent Styling (LIGHT THEME SIDEBAR + APPROVALS BOARD) */}
       <style>{`
+        html, body {
+          overflow-y: scroll !important;
+          scrollbar-gutter: stable !important;
+        }
+
         .admin-dashboard-container {
           display: flex;
           min-height: 100vh;
@@ -2419,9 +2404,11 @@ const AdminDashboard = () => {
           .admin-sidebar {
             left: -260px !important;
             transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            z-index: 2000 !important;
           }
           .admin-sidebar.mobile-open {
             left: 0 !important;
+            z-index: 2000 !important;
           }
           .admin-main-canvas {
             margin-left: 0 !important;
@@ -2440,10 +2427,20 @@ const AdminDashboard = () => {
             z-index: 999;
             animation: fadeIn 0.2s ease-out;
           }
+          .dashboard-layout-cols {
+            grid-template-columns: 1fr !important;
+            gap: 24px !important;
+          }
+          .admin-dashboard-content {
+            padding: 24px 20px !important;
+          }
         }
 
         /* Mobile specific visual fixes for 640px screens */
         @media (max-width: 640px) {
+          .admin-dashboard-content {
+            padding: 16px 12px !important;
+          }
           .admin-top-header {
             padding: 0 12px !important;
             height: auto !important;
@@ -2501,6 +2498,91 @@ const AdminDashboard = () => {
           }
         }
 
+        /* ----- SUBSCRIPTION MOBILE RESPONSIVE LAYOUT ----- */
+        .subscription-alert-banner {
+          background: #EFF6FF;
+          border: 1px solid #BFDBFE;
+          border-radius: 16px;
+          padding: 20px 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+        .subscription-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+          gap: 24px;
+        }
+        .subscription-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 16px 0;
+          border-bottom: 1px solid #F1F5F9;
+        }
+        .subscription-row:last-child {
+          border-bottom: none;
+        }
+
+        /* ----- UPDATES MOBILE RESPONSIVE LAYOUT ----- */
+        .admin-update-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px 24px;
+          border-radius: 16px;
+          gap: 16px;
+        }
+        .admin-update-card-left {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+        @media (max-width: 768px) {
+          .admin-update-card {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 16px !important;
+            padding: 16px !important;
+          }
+          .admin-update-card-left {
+            align-items: flex-start !important;
+          }
+          .admin-update-card > button, .admin-update-card > span {
+            align-self: stretch !important;
+            text-align: center !important;
+            justify-content: center !important;
+          }
+        }
+
+        @media (max-width: 1024px) {
+          .subscription-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .subscription-alert-banner {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            padding: 16px !important;
+          }
+          .subscription-alert-banner button {
+            width: 100% !important;
+            text-align: center !important;
+          }
+          .subscription-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 6px !important;
+            padding: 12px 0 !important;
+          }
+          .subscription-row span:last-child {
+            align-self: flex-start !important;
+          }
+        }
+
         /* ----- ROLE COVERAGE / PERMISSIONS MANAGER TAB ----- */
         .pm-container {
           display: grid;
@@ -2519,7 +2601,48 @@ const AdminDashboard = () => {
           flex-direction: column;
           gap: 16px;
           box-shadow: 0 4px 20px rgba(0,0,0,0.01);
-          height: fit-content;
+          position: sticky;
+          top: 100px;
+          max-height: calc(100vh - 140px);
+        }
+
+        .pm-search-container {
+          position: relative;
+          width: 100%;
+          margin-bottom: 4px;
+        }
+
+        .pm-search-input {
+          width: 100%;
+          height: 40px;
+          background: #F8FAFC;
+          border: 1px solid #E2E8F0;
+          border-radius: 10px;
+          padding: 0 16px 0 36px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #1E293B;
+          outline: none;
+          transition: all 0.2s ease;
+          font-family: 'Outfit', sans-serif;
+          box-sizing: border-box;
+        }
+
+        .pm-search-input:focus {
+          background: #FFFFFF;
+          border-color: #3B82F6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .pm-search-icon {
+          position: absolute;
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 16px;
+          height: 16px;
+          color: #94A3B8;
+          pointer-events: none;
         }
 
         .pm-pane-title {
@@ -2535,7 +2658,7 @@ const AdminDashboard = () => {
           display: flex;
           flex-direction: column;
           gap: 8px;
-          max-height: 500px;
+          flex: 1;
           overflow-y: auto;
         }
 
@@ -2994,6 +3117,7 @@ const AdminDashboard = () => {
         className={`admin-sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`} 
         ref={sidebarRef}
         onClick={() => setMobileSidebarOpen(false)}
+        data-lenis-prevent
       >
         <div className="sidebar-brand">
           <div className="sidebar-brand-icon">
@@ -3109,14 +3233,14 @@ const AdminDashboard = () => {
         </div>
 
         {/* Bottom Profile Section with Dropdown toggle */}
-        <div className="sidebar-profile">
+        <div className="sidebar-profile" onClick={(e) => e.stopPropagation()}>
           {showProfileMenu && (
             <div className="profile-dropmenu-box">
-              <div className="dropmenu-item" onClick={() => { setActiveTab('dashboard'); setShowProfileMenu(false); }}>
+              <div className="dropmenu-item" onClick={() => { setActiveTab('dashboard'); setShowProfileMenu(false); setMobileSidebarOpen(false); }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="10" rx="1"/><rect width="7" height="5" x="3" y="14" rx="1"/></svg>
                 <span>Dashboard</span>
               </div>
-              <div className="dropmenu-item" onClick={() => { setActiveTab('subscription'); setShowProfileMenu(false); }}>
+              <div className="dropmenu-item" onClick={() => { setActiveTab('subscription'); setShowProfileMenu(false); setMobileSidebarOpen(false); }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
                 <span>Subscription</span>
               </div>
@@ -3268,42 +3392,44 @@ const AdminDashboard = () => {
                     <button className="widget-header-action-btn" onClick={() => setActiveTab('appointments')}>View all</button>
                   </div>
 
-                  <table className="premium-dashboard-table">
-                    <thead>
-                      <tr>
-                        <th>Time</th>
-                        <th>Patient</th>
-                        <th>Doctor</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><b>09:00</b></td>
-                        <td>Rahul M.</td>
-                        <td>Dr. Abhishek</td>
-                        <td><span className="pill-badge completed">Completed</span></td>
-                      </tr>
-                      <tr>
-                        <td><b>09:30</b></td>
-                        <td>Priya K.</td>
-                        <td>Dr. Sharma</td>
-                        <td><span className="pill-badge inqueue">In queue</span></td>
-                      </tr>
-                      <tr>
-                        <td><b>10:00</b></td>
-                        <td>Vikram S.</td>
-                        <td>Dr. Abhishek</td>
-                        <td><span className="pill-badge scheduled">Scheduled</span></td>
-                      </tr>
-                      <tr>
-                        <td><b>10:30</b></td>
-                        <td>Sunita D.</td>
-                        <td>Dr. Verma</td>
-                        <td><span className="pill-badge scheduled">Scheduled</span></td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="premium-dashboard-table">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Patient</th>
+                          <th>Doctor</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><b>09:00</b></td>
+                          <td>Rahul M.</td>
+                          <td>Dr. Abhishek</td>
+                          <td><span className="pill-badge completed">Completed</span></td>
+                        </tr>
+                        <tr>
+                          <td><b>09:30</b></td>
+                          <td>Priya K.</td>
+                          <td>Dr. Sharma</td>
+                          <td><span className="pill-badge inqueue">In queue</span></td>
+                        </tr>
+                        <tr>
+                          <td><b>10:00</b></td>
+                          <td>Vikram S.</td>
+                          <td>Dr. Abhishek</td>
+                          <td><span className="pill-badge scheduled">Scheduled</span></td>
+                        </tr>
+                        <tr>
+                          <td><b>10:30</b></td>
+                          <td>Sunita D.</td>
+                          <td>Dr. Verma</td>
+                          <td><span className="pill-badge scheduled">Scheduled</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 {/* Alerts & Tasks Widget */}
@@ -4581,8 +4707,332 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {/* Dedicated Subscription Page Tab */}
+        {activeTab === 'subscription' && (
+          <div className="admin-dashboard-content">
+            {/* KPI STAT CARDS */}
+            <div className="admin-kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+              <div className="admin-kpi-card" style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span className="kpi-card-header" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px' }}>Current Plan</span>
+                <span className="kpi-card-val" style={{ fontSize: '32px', fontWeight: 900, color: '#2563EB', fontFamily: "'Outfit', sans-serif" }}>Pro</span>
+                <span className="kpi-card-sub" style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>Active</span>
+              </div>
+
+              <div className="admin-kpi-card" style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span className="kpi-card-header" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px' }}>Renewal Date</span>
+                <span className="kpi-card-val" style={{ fontSize: '32px', fontWeight: 900, color: '#D97706', fontFamily: "'Outfit', sans-serif" }}>8 Jun 2026</span>
+                <span className="kpi-card-sub" style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>8 days left</span>
+              </div>
+
+              <div className="admin-kpi-card" style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span className="kpi-card-header" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px' }}>This Cycle Usage</span>
+                <span className="kpi-card-val" style={{ fontSize: '32px', fontWeight: 900, color: '#0F172A', fontFamily: "'Outfit', sans-serif" }}>18/40</span>
+                <span className="kpi-card-sub" style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>Patients registered/day avg</span>
+              </div>
+            </div>
+
+            {/* Alert Banner for Subscription Due */}
+            <div className="subscription-alert-banner">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '12px',
+                  background: '#DBEAFE',
+                  color: '#2563EB',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                </div>
+                <div>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 800, color: '#1E3A8A' }}>Subscription renewal due in 8 days</h4>
+                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#1E40AF' }}>Renew before 8 June 2026 to avoid service disruption. Contact your MediFlow admin.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => alert("Renewal request submitted successfully to MediFlow support.")}
+                style={{
+                  border: '1.5px solid #2563EB',
+                  background: '#FFFFFF',
+                  color: '#2563EB',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  letterSpacing: '0.3px',
+                  transition: 'all 0.2s',
+                  flexShrink: 0
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#EFF6FF'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = '#FFFFFF'; }}
+              >
+                REQUEST RENEWAL
+              </button>
+            </div>
+
+            {/* Split Row for Details & Usage */}
+            <div className="subscription-grid">
+              
+              {/* Professional Plan Details Card */}
+              <div className="dashboard-widget-card" style={{ padding: '24px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#0F172A', margin: '0 0 4px 0' }}>Professional plan</h3>
+                    <span style={{ fontSize: '16px', fontWeight: 700, color: '#64748B' }}>₹24,000 <span style={{ fontSize: '13px', fontWeight: 600 }}>/ month</span></span>
+                  </div>
+                  <span style={{
+                    background: '#DCFCE7',
+                    color: '#15803D',
+                    fontSize: '11px',
+                    fontWeight: 900,
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    ACTIVE
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {[
+                    { label: "Current plan", val: "Professional", style: { color: '#2563EB', fontWeight: 700 } },
+                    { label: "Renewal date", val: "8 June 2026", style: { color: '#0F172A', fontWeight: 800 } },
+                    { label: "This cycle: patients registered", val: "1,840 / 4,000", style: { color: '#0F172A', fontWeight: 800 } },
+                    { 
+                      label: "OPD / Lab / Pharmacy access", 
+                      val: "ENABLED", 
+                      custom: true,
+                      elem: (
+                        <span style={{ background: '#DCFCE7', color: '#15803D', fontSize: '10px', fontWeight: 900, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.3px' }}>
+                          ENABLED
+                        </span>
+                      )
+                    },
+                    { 
+                      label: "API access", 
+                      val: "NOT INCLUDED • ENTERPRISE ONLY", 
+                      custom: true,
+                      elem: (
+                        <span style={{ background: '#FEE2E2', color: '#B91C1C', fontSize: '10px', fontWeight: 900, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.3px' }}>
+                          NOT INCLUDED • ENTERPRISE ONLY
+                        </span>
+                      )
+                    }
+                  ].map((row, idx) => (
+                    <div key={idx} className="subscription-row">
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>{row.label}</span>
+                      {row.custom ? row.elem : (
+                        <span style={{ fontSize: '13px', ...row.style }}>{row.val}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Usage this billing cycle Card */}
+              <div className="dashboard-widget-card" style={{ padding: '24px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 900, color: '#0F172A', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="20" y2="12"/><line x1="5" x2="5" y1="20" y2="4"/><line x1="19" x2="19" y1="20" y2="16"/></svg>
+                  Usage this billing cycle
+                </h3>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {[
+                    { label: "Patient registrations", val: "46%", color: '#2563EB', pct: 46 },
+                    { label: "Lab reports issued", val: "31%", color: '#06B6D4', pct: 31 },
+                    { label: "Staff accounts active", val: "19/30 • 63%", color: '#10B981', pct: 63 }
+                  ].map((bar, idx) => (
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>{bar.label}</span>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>{bar.val}</span>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', background: '#F1F5F9', borderRadius: '99px', overflow: 'hidden' }}>
+                        <div style={{ width: `${bar.pct}%`, height: '100%', background: bar.color, borderRadius: '99px', transition: 'width 0.6s ease' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* Dedicated Updates Page Tab */}
+        {activeTab === 'updates' && (
+          <div className="admin-dashboard-content">
+            {/* KPI STAT CARDS */}
+            <div className="admin-kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+              <div className="admin-kpi-card" style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span className="kpi-card-header" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px' }}>Pending Updates</span>
+                <span className="kpi-card-val" style={{ fontSize: '32px', fontWeight: 900, color: '#0F172A', fontFamily: "'Outfit', sans-serif" }}>3</span>
+                <span className="kpi-card-sub" style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>From superadmin</span>
+              </div>
+
+              <div className="admin-kpi-card" style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span className="kpi-card-header" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px' }}>Current Version</span>
+                <span className="kpi-card-val" style={{ fontSize: '32px', fontWeight: 900, color: '#0F172A', fontFamily: "'Outfit', sans-serif" }}>v 2.1.4</span>
+                <span className="kpi-card-sub" style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>Latest applied</span>
+              </div>
+
+              <div className="admin-kpi-card" style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span className="kpi-card-header" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px' }}>Subscription Days Left</span>
+                <span className="kpi-card-val" style={{ fontSize: '32px', fontWeight: 900, color: '#D97706', fontFamily: "'Outfit', sans-serif" }}>8</span>
+                <span className="kpi-card-sub" style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>Renewal due 8 Jun</span>
+              </div>
+            </div>
+
+            {/* Updates widget block */}
+            <div className="dashboard-widget-card" style={{ padding: '24px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 900, color: '#0F172A', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                Updates from superadmin
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                
+                {/* Update item 1: System update */}
+                <div className="admin-update-card" style={{
+                  background: '#EFF6FF',
+                  border: '1px solid #DBEAFE'
+                }}>
+                  <div className="admin-update-card-left">
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '12px',
+                      background: '#DBEAFE',
+                      color: '#2563EB',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 800, color: '#1E293B' }}>System update – v 2.1.4</h4>
+                      <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#64748B' }}>Maintenance window: 28 May • 2-4 AM • Scheduled at 25 May 5:03 PM</p>
+                    </div>
+                  </div>
+                  <span style={{
+                    background: '#DBEAFE',
+                    color: '#2563EB',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '6px 14px',
+                    borderRadius: '99px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    SCHEDULED
+                  </span>
+                </div>
+
+                {/* Update item 2: Subscription renewal */}
+                <div className="admin-update-card" style={{
+                  background: '#FFFDF5',
+                  border: '1px solid #FEF3C7'
+                }}>
+                  <div className="admin-update-card-left">
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '12px',
+                      background: '#FEF3C7',
+                      color: '#D97706',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 800, color: '#1E293B' }}>Subscription renewal reminder</h4>
+                      <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#64748B' }}>Plan expires in 8 days. Renew to avoid disruption. (21 May 4:07 PM)</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setActiveTab('subscription')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#D97706',
+                      fontSize: '14px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FFFbeb'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    View →
+                  </button>
+                </div>
+
+                {/* Update item 3: Compliance guideline */}
+                <div className="admin-update-card" style={{
+                  background: '#F0FDF4',
+                  border: '1px solid #DCFCE7'
+                }}>
+                  <div className="admin-update-card-left">
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '12px',
+                      background: '#DCFCE7',
+                      color: '#15803D',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 800, color: '#1E293B' }}>New compliance guideline</h4>
+                      <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#64748B' }}>Patient consent form updated. View & acknowledge required. (21 May 4:07 PM)</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => alert("Guidelines acknowledged successfully.")}
+                    style={{
+                      background: '#22C55E',
+                      color: '#FFFFFF',
+                      fontSize: '13px',
+                      fontWeight: 800,
+                      padding: '10px 18px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#16a34a'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#22C55E'; }}
+                  >
+                    View & acknowledge
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 9. Fallback for placeholder clicks to keep UI functional */}
-        {['subscription', 'maintenance', 'updates'].includes(activeTab) && (
+        {['maintenance'].includes(activeTab) && (
           <div className="admin-dashboard-content">
             <div className="dashboard-widget-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '16px', opacity: 0.8 }}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg>
@@ -4702,10 +5152,32 @@ const AdminDashboard = () => {
             <div className="pm-container">
               {/* Left pane - Staff List Selector */}
               <div className="pm-staff-pane">
-                <span className="pm-pane-title">Hospital Roster</span>
-                <div className="pm-staff-list">
-                  {staff.map(s => {
-                    const isActive = pmSelectedStaffId === s.id || pmSelectedStaffId === s.name;
+                <div className="pm-search-container">
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor" 
+                    className="pm-search-icon"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input 
+                    type="text" 
+                    className="pm-search-input" 
+                    placeholder="Search staff..." 
+                    value={rosterSearch}
+                    onChange={(e) => setRosterSearch(e.target.value)}
+                  />
+                </div>
+                <div className="pm-staff-list" data-lenis-prevent>
+                  {staff
+                    .filter(s => 
+                      s.name.toLowerCase().includes(rosterSearch.toLowerCase()) || 
+                      (s.role || '').toLowerCase().includes(rosterSearch.toLowerCase())
+                    )
+                    .map(s => {
+                      const isActive = pmSelectedStaffId === s.id || pmSelectedStaffId === s.name;
                     // Count active overrides for this staff
                     const overrideCount = Object.keys(pmState[s.name] || {}).filter(k => pmState[s.name][k]?.on).length;
                     

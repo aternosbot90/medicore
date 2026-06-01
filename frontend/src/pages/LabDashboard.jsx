@@ -23,6 +23,7 @@ if (typeof window !== 'undefined') {
 
 const LabDashboard = () => {
   const [activeTab, setActiveTab] = useState('lab-dash');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [activeSampleForEntry, setActiveSampleForEntry] = useState(null);
   const [showCollectModal, setShowCollectModal] = useState(false);
   const [selectedReqForCollection, setSelectedReqForCollection] = useState(null);
@@ -307,26 +308,26 @@ const LabDashboard = () => {
 
   return (
     <>
-      <div className="sidebar">
+      <div className={"sidebar " + (mobileSidebarOpen ? "mobile-open" : "")} data-lenis-prevent>
         <div className="sidebar-logo">
           <i data-lucide="heart-pulse"></i><span>MediCore</span>
         </div>
         <nav>
-          <a href="#" className={`nav-link ${activeTab === 'lab-dash' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-dash'); }}><i data-lucide="layout-dashboard"></i> Dashboard</a>
-          <a href="#" className={`nav-link ${activeTab === 'lab-requests' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-requests'); }}><i data-lucide="clipboard-list"></i> Test Requests</a>
-          <a href="#" className={`nav-link ${activeTab === 'lab-samples' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-samples'); }}><i data-lucide="test-tube-2"></i> Sample Tracking</a>
-          <a href="#" className={`nav-link ${activeTab === 'lab-entry' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-entry'); }}><i data-lucide="edit-3"></i> Result Entry</a>
-          <a href="#" className={`nav-link ${activeTab === 'lab-inventory' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-inventory'); }}><i data-lucide="package"></i> Inventory</a>
+          <a href="#" className={`nav-link ${activeTab === 'lab-dash' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-dash'); setMobileSidebarOpen(false); }}><i data-lucide="layout-dashboard"></i> Dashboard</a>
+          <a href="#" className={`nav-link ${activeTab === 'lab-requests' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-requests'); setMobileSidebarOpen(false); }}><i data-lucide="clipboard-list"></i> Test Requests</a>
+          <a href="#" className={`nav-link ${activeTab === 'lab-samples' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-samples'); setMobileSidebarOpen(false); }}><i data-lucide="test-tube-2"></i> Sample Tracking</a>
+          <a href="#" className={`nav-link ${activeTab === 'lab-entry' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-entry'); setMobileSidebarOpen(false); }}><i data-lucide="edit-3"></i> Result Entry</a>
+          <a href="#" className={`nav-link ${activeTab === 'lab-inventory' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab-inventory'); setMobileSidebarOpen(false); }}><i data-lucide="package"></i> Inventory</a>
 
           {/* DYNAMIC COVERAGE INTEGRATION LINKS */}
           {(Object.keys(coverageState || {}).some(k => k.startsWith('rc-') && coverageState[k]?.on)) && (
-            <a href="#" className={`nav-link ${activeTab === 'receptionist_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('receptionist_cover'); }} style={{ color: '#E11D48', fontWeight: 800 }}>
+            <a href="#" className={`nav-link ${activeTab === 'receptionist_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('receptionist_cover'); setMobileSidebarOpen(false); }} style={{ color: '#E11D48', fontWeight: 800 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
               Receptionist Cover
             </a>
           )}
           {(Object.keys(coverageState || {}).some(k => k.startsWith('ph-') && coverageState[k]?.on)) && (
-            <a href="#" className={`nav-link ${activeTab === 'pharmacy_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('pharmacy_cover'); }} style={{ color: '#2563EB', fontWeight: 800 }}>
+            <a href="#" className={`nav-link ${activeTab === 'pharmacy_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('pharmacy_cover'); setMobileSidebarOpen(false); }} style={{ color: '#2563EB', fontWeight: 800 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M12 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
               Pharmacy Cover
             </a>
@@ -336,7 +337,36 @@ const LabDashboard = () => {
         </nav>
       </div>
 
-      <div className="top-nav">
+      {/* Mobile Sidebar Backdrop Overlay */}
+      {mobileSidebarOpen && (
+        <div className="mobile-backdrop" onClick={() => setMobileSidebarOpen(false)} />
+      )}
+
+      <div className="top-nav" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Hamburger Mobile Menu Toggle Button */}
+        <button 
+          className="mobile-menu-toggle"
+          onClick={(e) => {
+            e.stopPropagation();
+            setMobileSidebarOpen(!mobileSidebarOpen);
+          }}
+          style={{
+            display: 'none',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#475569',
+            padding: '8px',
+            borderRadius: '8px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'background-color 0.2s',
+            marginRight: '8px'
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
+        
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
             <span style={{ fontSize: '17px', fontWeight: 950, color: 'var(--primary)', letterSpacing: '-0.5px' }}>MediCore</span>
@@ -653,7 +683,7 @@ const LabDashboard = () => {
                     <input type="text" style={inputStyle} value={labFormData.name} onChange={e => setLabFormData({...labFormData, name: e.target.value})} required placeholder="e.g. Hematology Reagent" />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                     <div className="form-group">
                       <label style={labelStyle}>Category</label>
                       <select style={inputStyle} value={labFormData.category} onChange={e => setLabFormData({...labFormData, category: e.target.value})} required>
@@ -674,7 +704,7 @@ const LabDashboard = () => {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div className="mobile-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                     <div className="form-group">
                       <label style={labelStyle}>Current Stock</label>
                       <input type="number" style={inputStyle} value={labFormData.stock} onChange={e => setLabFormData({...labFormData, stock: Number(e.target.value)})} required />

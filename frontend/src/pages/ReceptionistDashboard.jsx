@@ -23,6 +23,7 @@ if (typeof window !== 'undefined') {
 
 const ReceptionistDashboard = () => {
   const [activeTab, setActiveTab] = useState('dash');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -285,15 +286,12 @@ const ReceptionistDashboard = () => {
   // Freeze background page scroll when Details Modal Dialog is active
   useEffect(() => {
     if (detailsModalOpen) {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
     } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      document.body.classList.remove('modal-open');
     }
     return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      document.body.classList.remove('modal-open');
     };
   }, [detailsModalOpen]);
 
@@ -305,6 +303,7 @@ const ReceptionistDashboard = () => {
 
   const switchTab = (tabId) => {
     setActiveTab(tabId);
+    setMobileSidebarOpen(false);
     if (tabId === 'registration-form') {
       setIsExistingPatient(null);
       setSelectedPatient(null);
@@ -410,9 +409,10 @@ const ReceptionistDashboard = () => {
         html, body {
           background-color: #F8FAFC !important;
           font-family: 'Urbanist', sans-serif !important;
-          overflow-y: auto !important;
+          overflow-y: scroll !important;
           margin: 0 !important;
           padding: 0 !important;
+          scrollbar-gutter: stable !important;
         }
 
         /* SIDEBAR MODERN DESIGN */
@@ -699,6 +699,23 @@ const ReceptionistDashboard = () => {
             transform: translateY(0);
           }
         }
+
+        @media (max-width: 1024px) {
+          .sidebar {
+            z-index: 2000 !important;
+          }
+          .sidebar.mobile-open {
+            z-index: 2010 !important;
+          }
+          .top-nav {
+            margin-left: 0 !important;
+            padding: 0 16px !important;
+          }
+          .main-content {
+            margin-left: 0 !important;
+            padding: 16px !important;
+          }
+        }
       `}</style>
 
       {notification && (
@@ -738,7 +755,7 @@ const ReceptionistDashboard = () => {
       )}
 
       {/* Modern Pinned Sidebar */}
-      <div className="sidebar">
+      <div className={"sidebar " + (mobileSidebarOpen ? "mobile-open" : "")} data-lenis-prevent>
         <div className="sidebar-logo">
           <i data-lucide="heart"></i>
           <span>MediCore</span>
@@ -752,19 +769,19 @@ const ReceptionistDashboard = () => {
 
           {/* DYNAMIC COVERAGE INTEGRATION LINKS */}
           {(Object.keys(coverageState || {}).some(k => k.startsWith('doc-') || k.startsWith('rc-') && coverageState[k]?.on)) && (
-            <a href="#" className={`nav-link ${activeTab === 'doctor_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('doctor_cover'); }} style={{ color: '#E11D48', fontWeight: 800 }}>
+            <a href="#" className={`nav-link ${activeTab === 'doctor_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('doctor_cover'); setMobileSidebarOpen(false); }} style={{ color: '#E11D48', fontWeight: 800 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
               Doctor Cover
             </a>
           )}
           {(Object.keys(coverageState || {}).some(k => k.startsWith('lt-') && coverageState[k]?.on)) && (
-            <a href="#" className={`nav-link ${activeTab === 'lab_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab_cover'); }} style={{ color: '#059669', fontWeight: 800 }}>
+            <a href="#" className={`nav-link ${activeTab === 'lab_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab_cover'); setMobileSidebarOpen(false); }} style={{ color: '#059669', fontWeight: 800 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M6 18H18"/><path d="M10 14H14"/><path d="M12 2v20"/><path d="M18 10H6"/></svg>
               Lab Cover
             </a>
           )}
           {(Object.keys(coverageState || {}).some(k => k.startsWith('ph-') && coverageState[k]?.on)) && (
-            <a href="#" className={`nav-link ${activeTab === 'pharmacy_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('pharmacy_cover'); }} style={{ color: '#2563EB', fontWeight: 800 }}>
+            <a href="#" className={`nav-link ${activeTab === 'pharmacy_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('pharmacy_cover'); setMobileSidebarOpen(false); }} style={{ color: '#2563EB', fontWeight: 800 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M12 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
               Pharmacy Cover
             </a>
@@ -772,7 +789,7 @@ const ReceptionistDashboard = () => {
         </nav>
 
         {/* User profile card at the bottom of the sidebar with modern Popover Dropdown */}
-        <div className="sidebar-user" onClick={() => setShowProfileMenu(!showProfileMenu)}>
+        <div className="sidebar-user" onClick={(e) => { e.stopPropagation(); setShowProfileMenu(!showProfileMenu); }}>
           <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100" className="user-avatar" alt="Avatar" />
           <div className="user-info">
             <div className="name">{user.name || 'Roshni'}</div>
@@ -826,8 +843,37 @@ const ReceptionistDashboard = () => {
         </div>
       </div>
 
+      {/* Mobile Sidebar Backdrop Overlay */}
+      {mobileSidebarOpen && (
+        <div className="mobile-backdrop" onClick={() => setMobileSidebarOpen(false)} />
+      )}
+
       {/* Modern Top Nav */}
-      <div className="top-nav">
+      <div className="top-nav" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Hamburger Mobile Menu Toggle Button */}
+        <button 
+          className="mobile-menu-toggle"
+          onClick={(e) => {
+            e.stopPropagation();
+            setMobileSidebarOpen(!mobileSidebarOpen);
+          }}
+          style={{
+            display: 'none',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#475569',
+            padding: '8px',
+            borderRadius: '8px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'background-color 0.2s',
+            marginRight: '8px'
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, maxWidth: '560px' }}>
           <div className="desktop-only-flex" style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
             <i data-lucide="search" style={{ position: 'absolute', left: '16px', color: '#64748B', width: '16px' }}></i>
@@ -1190,7 +1236,7 @@ const ReceptionistDashboard = () => {
                 </div>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '32px' }}>
+            <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '32px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div className="glass-card" style={{ padding: '24px' }}>
                         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', marginBottom: '24px', position: 'relative' }}>
@@ -1453,7 +1499,7 @@ const ReceptionistDashboard = () => {
                   </div>
                   
                   {/* Expanded Fields Form */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
+                  <div className="mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                       <div className="form-group">
                           <label style={{ fontSize: '12px', fontWeight: 800, color: '#64748B' }}>Full Name <span style={{ color: '#EF4444' }}>*</span></label>
                           <input 

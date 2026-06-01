@@ -970,8 +970,37 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
         overflow-x: hidden !important;
     }
     .sidebar {
-        transform: translateX(-100%);
-        box-shadow: none;
+        transform: translateX(-100%) !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        height: 100vh !important;
+        z-index: 2000 !important;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 10px 0 30px rgba(15, 23, 42, 0.15) !important;
+        background: white !important;
+    }
+    .sidebar.mobile-open {
+        transform: translateX(0) !important;
+        z-index: 2010 !important;
+    }
+    .mobile-menu-toggle {
+        display: flex !important;
+    }
+    .mobile-backdrop {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background-color: rgba(15, 23, 42, 0.4) !important;
+        backdrop-filter: blur(4px) !important;
+        z-index: 1999 !important;
+        animation: fadeIn 0.2s ease-out !important;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
     .top-nav {
         margin-left: 0 !important;
@@ -1510,45 +1539,65 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
     to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* Custom Modern & Slim Scrollbar System with Layout Overlay */
+/* Custom Modern & Slim Scrollbar System with Stable Layout */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #F1F5F9;
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(15, 23, 42, 0.18);
+  background: #CBD5E1;
   border-radius: 10px;
-  border: 1.5px solid transparent;
-  background-clip: padding-box;
+  border: 2px solid #F1F5F9;
   transition: background 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(15, 23, 42, 0.35);
-  background-clip: padding-box;
+  background: #94A3B8;
 }
 
-/* Force overlay layout in Webkit browsers to ensure scrollbars float on top and take up 0px width */
-@supports (overflow: overlay) {
-  html, body, .table-responsive, .scroll-overlay-y {
-    /* Set scrollbar behavior to overlay so it floats above content rather than eating layout space */
-    overflow-y: overlay;
-  }
-  
-  .table-responsive {
-    overflow-x: overlay;
-  }
+/* Force stable layout with standard scrollbars so they never hide or fade out on hover */
+html {
+  overflow-y: scroll !important;
+  scrollbar-gutter: stable !important;
 }
 
-/* Firefox compatibility (thin translucent overlay effect) */
+body {
+  scrollbar-gutter: stable !important;
+}
+
+/* Global scroll lock class */
+body.modal-open {
+  overflow: hidden !important;
+  height: 100vh !important;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+/* Firefox compatibility */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(15, 23, 42, 0.18) transparent;
+  scrollbar-color: #CBD5E1 #F1F5F9;
+}
+
+/* Prevent scroll chaining/leakage globally for individual scrollable components */
+.sidebar, 
+.sidebar nav, 
+.admin-sidebar, 
+.sidebar-nav-container,
+.modal-body,
+.table-responsive,
+.scroll-overlay-y,
+.dropdown-options-box,
+[data-lenis-prevent] {
+  overscroll-behavior: contain !important;
 }
 
 /* Premium Autocomplete Medicine Dropdown Styling */
@@ -1572,4 +1621,17 @@ textarea.form-control { resize: none; min-height: 100px; width: 100% !important;
 .med-dropdown-item:hover {
   background: #F1F5F9 !important;
   transform: translateX(4px);
+}
+
+/* GLOBAL RESPONSIVE GRID STACK HELPER CLASSES */
+@media (max-width: 1024px) {
+  .mobile-stack {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .mobile-grid-2, .mobile-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
 }

@@ -4,8 +4,7 @@ const roleCoverageSchema = new mongoose.Schema({
   tenantId: {
     type: String,
     required: true,
-    default: 'city_hospital',
-    index: true
+    default: 'city_hospital'
   },
   state: {
     type: mongoose.Schema.Types.Mixed,

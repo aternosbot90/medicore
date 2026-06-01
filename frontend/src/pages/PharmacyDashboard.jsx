@@ -79,6 +79,7 @@ const PharmacyDashboard = () => {
 
   const [inventory, setInventory] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Toast status notifications
   const [successMessage, setSuccessMessage] = useState('');
@@ -426,15 +427,12 @@ const PharmacyDashboard = () => {
   // Freeze background page scroll when any Modal Dialog is active
   useEffect(() => {
     if (showMedicineModal) {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
     } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      document.body.classList.remove('modal-open');
     }
     return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      document.body.classList.remove('modal-open');
     };
   }, [showMedicineModal, activeTab]);
 
@@ -685,9 +683,24 @@ const PharmacyDashboard = () => {
         html, body {
           background-color: #F8FAFC !important;
           font-family: 'Urbanist', sans-serif !important;
-          overflow-y: auto !important;
+          overflow-y: scroll !important;
           margin: 0 !important;
           padding: 0 !important;
+          scrollbar-gutter: stable !important;
+        }
+
+        .modal-overlay {
+          display: flex !important;
+          z-index: 1300 !important;
+          background: rgba(15, 23, 42, 0.45) !important;
+          backdrop-filter: blur(8px) !important;
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          align-items: center !important;
+          justify-content: center !important;
         }
 
         /* SIDEBAR OVERRIDES */
@@ -960,7 +973,9 @@ const PharmacyDashboard = () => {
 
         /* CALENDAR */
         .calendar-cell {
+          width: 28px !important;
           height: 28px !important;
+          margin: 0 auto !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
@@ -993,68 +1008,145 @@ const PharmacyDashboard = () => {
           }
         }
 
+        .mobile-menu-toggle {
+          display: none !important;
+        }
+
+        .top-nav-search {
+          position: relative;
+          width: 320px;
+        }
+
         @media (max-width: 1200px) {
           .kpi-grid {
             grid-template-columns: repeat(3, 1fr) !important;
           }
         }
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           .kpi-grid {
             grid-template-columns: 1fr !important;
           }
           .sidebar {
-            display: none !important;
+            left: -240px !important;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            display: flex !important;
+            z-index: 2000 !important;
+          }
+          .sidebar.mobile-open {
+            left: 0 !important;
+            z-index: 2010 !important;
           }
           .top-nav, .main-content {
             margin-left: 0 !important;
           }
           .top-nav {
             padding: 0 16px !important;
+            justify-content: space-between !important;
+            left: 0 !important;
+          }
+          .mobile-menu-toggle {
+            display: flex !important;
+            z-index: 100 !important;
+          }
+          .top-nav-search {
+            width: auto !important;
+            max-width: 180px !important;
+            flex: 1 !important;
+          }
+          .modal-overlay {
+            left: 0 !important;
+            width: 100% !important;
+          }
+          .mobile-backdrop {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background-color: rgba(15, 23, 42, 0.4) !important;
+            backdrop-filter: blur(4px) !important;
+            z-index: 1999 !important;
+            animation: fadeIn 0.2s ease-out !important;
+          }
+        }
+
+        /* ----- PHARMACY DASHBOARD RESPONSIVE SPLIT LAYOUT ----- */
+        .pharmacy-split-section {
+          display: grid;
+          grid-template-columns: 1.7fr 1fr;
+          gap: 24px;
+          margin-bottom: 24px;
+        }
+        .pharmacy-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+
+        @media (max-width: 1024px) {
+          .pharmacy-split-section {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .pharmacy-card-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 12px !important;
+          }
+          .pharmacy-card-header .subtab-container {
+            width: 100% !important;
+            overflow-x: auto !important;
+            display: flex !important;
+            white-space: nowrap !important;
+            padding-bottom: 4px !important;
+            -webkit-overflow-scrolling: touch;
           }
         }
       `}</style>
 
       {/* Sidebar Layout */}
-      <div className="sidebar">
+      <div className={"sidebar " + (mobileSidebarOpen ? "mobile-open" : "")} data-lenis-prevent>
         <div className="sidebar-logo">
           <i data-lucide="stethoscope"></i>
           <span>MediCore</span>
         </div>
         <nav>
-          <a href="#" className={`nav-link ${activeTab === 'dash' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('dash'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'dash' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('dash'); setMobileSidebarOpen(false); }}>
             <i data-lucide="layout-grid"></i> Overview
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'prescriptions' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('prescriptions'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'prescriptions' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('prescriptions'); setMobileSidebarOpen(false); }}>
             <i data-lucide="file-text"></i> Prescriptions
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'internal' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('internal'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'internal' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('internal'); setMobileSidebarOpen(false); }}>
             <i data-lucide="git-pull-request"></i> Internal requests
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'sales' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('sales'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'sales' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('sales'); setMobileSidebarOpen(false); }}>
             <i data-lucide="credit-card"></i> Sales
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'inventory' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('inventory'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'inventory' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('inventory'); setMobileSidebarOpen(false); }}>
             <i data-lucide="package"></i> Inventory
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'returns' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('returns'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'returns' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('returns'); setMobileSidebarOpen(false); }}>
             <i data-lucide="refresh-cw"></i> Returns
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'reports' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('reports'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'reports' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('reports'); setMobileSidebarOpen(false); }}>
             <i data-lucide="trending-up"></i> Reports
           </a>
-          <a href="#" className={`nav-link ${activeTab === 'profile-tab' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('profile-tab'); }}>
+          <a href="#" className={`nav-link ${activeTab === 'profile-tab' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('profile-tab'); setMobileSidebarOpen(false); }}>
             <i data-lucide="user"></i> Profile
           </a>
 
           {/* DYNAMIC COVERAGE INTEGRATION LINKS */}
           {(Object.keys(coverageState || {}).some(k => k.startsWith('rc-') && coverageState[k]?.on)) && (
-            <a href="#" className={`nav-link ${activeTab === 'receptionist_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('receptionist_cover'); }} style={{ color: '#E11D48', fontWeight: 800 }}>
+            <a href="#" className={`nav-link ${activeTab === 'receptionist_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('receptionist_cover'); setMobileSidebarOpen(false); }} style={{ color: '#E11D48', fontWeight: 800 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
               Receptionist Cover
             </a>
           )}
           {(Object.keys(coverageState || {}).some(k => k.startsWith('lt-') && coverageState[k]?.on)) && (
-            <a href="#" className={`nav-link ${activeTab === 'lab_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab_cover'); }} style={{ color: '#059669', fontWeight: 800 }}>
+            <a href="#" className={`nav-link ${activeTab === 'lab_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab_cover'); setMobileSidebarOpen(false); }} style={{ color: '#059669', fontWeight: 800 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M6 18H18"/><path d="M10 14H14"/><path d="M12 2v20"/><path d="M18 10H6"/></svg>
               Lab Cover
             </a>
@@ -1106,7 +1198,7 @@ const PharmacyDashboard = () => {
         )}
 
         {/* Bottom Profile Card */}
-        <div className="sidebar-profile-card" onClick={() => setShowProfileMenu(!showProfileMenu)}>
+        <div className="sidebar-profile-card" onClick={(e) => { e.stopPropagation(); setShowProfileMenu(!showProfileMenu); }}>
           <img 
             className="sidebar-profile-avatar" 
             src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=100&auto=format&fit=crop&q=80" 
@@ -1120,9 +1212,37 @@ const PharmacyDashboard = () => {
         </div>
       </div>
 
+      {/* Mobile Sidebar Backdrop Overlay */}
+      {mobileSidebarOpen && (
+        <div className="mobile-backdrop" onClick={() => setMobileSidebarOpen(false)} />
+      )}
+
       {/* Top Navbar */}
-      <div className="top-nav">
-        <div style={{ position: 'relative', width: '320px' }}>
+      <div className="top-nav" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Hamburger Mobile Menu Toggle Button */}
+        <button 
+          className="mobile-menu-toggle"
+          onClick={(e) => {
+            e.stopPropagation();
+            setMobileSidebarOpen(!mobileSidebarOpen);
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#475569',
+            padding: '8px',
+            borderRadius: '8px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'background-color 0.2s',
+            marginRight: '8px'
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
+
+        <div className="top-nav-search">
           <i data-lucide="search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', width: '16px' }}></i>
           <input 
             type="text" 
@@ -1244,13 +1364,13 @@ const PharmacyDashboard = () => {
             </div>
 
             {/* Split Section: Table and Calendar */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: '24px', marginBottom: '24px' }}>
+            <div className="pharmacy-split-section">
               
               {/* Prescriptions Queue */}
               <div className="glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div className="pharmacy-card-header">
                   <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Prescriptions Queue</h3>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div className="subtab-container" style={{ display: 'flex', gap: '8px' }}>
                     {['All', 'Urgent', 'New', 'In Progress'].map(tab => (
                       <span 
                         key={tab} 
@@ -1461,14 +1581,14 @@ const PharmacyDashboard = () => {
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', height: '110px' }}>
                   <svg width="100" height="100" viewBox="0 0 36 36">
                     <path
-                      className="donut-ring"
+                      className="pharmacy-donut-ring"
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       fill="none"
                       stroke="#F1F5F9"
                       strokeWidth="3.5"
                     />
                     <path
-                      className="donut-segment"
+                      className="pharmacy-donut-segment"
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       fill="none"
                       stroke="#854D0E" // Brownish/Primary accent matching screenshot
@@ -1477,7 +1597,7 @@ const PharmacyDashboard = () => {
                       strokeDashoffset="25"
                     />
                     <path
-                      className="donut-segment"
+                      className="pharmacy-donut-segment"
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       fill="none"
                       stroke="#2563EB" // Blue
@@ -1939,7 +2059,7 @@ const PharmacyDashboard = () => {
 
       {/* Unified Manage Medicine Modal */}
       {showMedicineModal && (
-        <div className="modal-overlay" style={{ display: 'flex', zIndex: 1300, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowMedicineModal(false)}>
+        <div className="modal-overlay" data-lenis-prevent onClick={() => setShowMedicineModal(false)}>
           <div className="modal-box glass-card" style={{ width: '90%', maxWidth: '500px', maxHeight: '90vh', background: 'white', padding: '28px 28px 20px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)', position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <style>{`
               .modal-scroll-body::-webkit-scrollbar {
@@ -1967,7 +2087,7 @@ const PharmacyDashboard = () => {
 
             <form onSubmit={handleSaveMedicine} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               {/* Scrollable Form Fields Body */}
-              <div className="modal-scroll-body" style={{ overflowY: 'auto', flex: 1, paddingRight: '8px', marginBottom: '16px', display: 'flex', flexDirection: 'column' }}>
+              <div className="modal-scroll-body" data-lenis-prevent style={{ overflowY: 'auto', flex: 1, paddingRight: '8px', marginBottom: '16px', display: 'flex', flexDirection: 'column' }}>
                 {modalMode !== 'restock' ? (
                 <>
                   {/* Premium Scanner Toolbar */}
@@ -1994,26 +2114,6 @@ const PharmacyDashboard = () => {
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                       {isWebcamScanning ? 'Stop Camera Scanning' : 'Scan with Webcam'}
-                    </button>
-                    
-                    <button 
-                      type="button" 
-                      onClick={() => handleBarcodeFound(Math.random() > 0.5 ? 'PAR-650' : 'PAN-40')} 
-                      style={{ 
-                        padding: '0 16px', 
-                        height: '42px', 
-                        borderRadius: '10px', 
-                        border: '1px solid #E2E8F0', 
-                        background: '#F0FDF4', 
-                        color: '#16A34A', 
-                        fontWeight: 700, 
-                        fontSize: '12.5px', 
-                        cursor: 'pointer', 
-                        transition: 'all 0.2s' 
-                      }}
-                      title="Simulate scanning a registered medicine (Paracetamol/Pantoprazole)"
-                    >
-                      🧪 Test Scan Pre-fill
                     </button>
                   </div>
 
