@@ -182,4 +182,41 @@ router.post('/register', tenantMiddleware, async (req, res) => {
   }
 });
 
+const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
+const RoleCoverage = require('../models/RoleCoverage');
+
+// GET role coverage overrides (scoped to tenant, for any logged-in staff member)
+router.get('/role-coverage', verifyToken, async (req, res) => {
+  try {
+    let coverage = await RoleCoverage.findOne({ tenantId: req.tenantId });
+    if (!coverage) {
+      return res.json({});
+    }
+    res.json(coverage.state || {});
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST update role coverage overrides (scoped to tenant, admin only)
+router.post('/role-coverage', verifyToken, isAdmin, async (req, res) => {
+  try {
+    const { state } = req.body;
+    let coverage = await RoleCoverage.findOne({ tenantId: req.tenantId });
+    if (!coverage) {
+      coverage = new RoleCoverage({
+        tenantId: req.tenantId,
+        state: state || {}
+      });
+    } else {
+      coverage.state = state || {};
+      coverage.markModified('state');
+    }
+    await coverage.save();
+    res.json({ message: 'Role coverage updated successfully', state: coverage.state });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

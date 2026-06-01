@@ -31,6 +31,52 @@ const PharmacyDashboard = () => {
   // Real logged-in user or premium default fallback
   const user = JSON.parse(localStorage.getItem('user') || '{"name":"Ankit Sharma","role":"Pharmacy","email":"ankit.sharma@medicore.com"}');
 
+  // Dynamic role coverage state & listener
+  const [coverageState, setCoverageState] = useState(() => {
+    const saved = localStorage.getItem('medicore_pmState');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed[user.name] || {};
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return {};
+  });
+
+  useEffect(() => {
+    const syncCoverage = () => {
+      const saved = localStorage.getItem('medicore_pmState');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setCoverageState(parsed[user.name] || {});
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    syncCoverage();
+    window.addEventListener('storage', syncCoverage);
+
+    // Sync from backend database for cross-browser / cross-device support
+    const fetchBackendCoverage = async () => {
+      try {
+        const response = await api.get('/auth/role-coverage');
+        if (response.data) {
+          localStorage.setItem('medicore_pmState', JSON.stringify(response.data));
+          setCoverageState(response.data[user.name] || {});
+        }
+      } catch (err) {
+        console.error('Failed to sync coverage from backend', err);
+      }
+    };
+    fetchBackendCoverage();
+
+    return () => window.removeEventListener('storage', syncCoverage);
+  }, [user.name]);
+
   const [inventory, setInventory] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
 
@@ -722,6 +768,20 @@ const PharmacyDashboard = () => {
           <a href="#" className={`nav-link ${activeTab === 'profile-tab' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('profile-tab'); }}>
             <i data-lucide="user"></i> Profile
           </a>
+
+          {/* DYNAMIC COVERAGE INTEGRATION LINKS */}
+          {(Object.keys(coverageState || {}).some(k => k.startsWith('rc-') && coverageState[k]?.on)) && (
+            <a href="#" className={`nav-link ${activeTab === 'receptionist_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('receptionist_cover'); }} style={{ color: '#E11D48', fontWeight: 800 }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+              Receptionist Cover
+            </a>
+          )}
+          {(Object.keys(coverageState || {}).some(k => k.startsWith('lt-') && coverageState[k]?.on)) && (
+            <a href="#" className={`nav-link ${activeTab === 'lab_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab_cover'); }} style={{ color: '#059669', fontWeight: 800 }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M6 18H18"/><path d="M10 14H14"/><path d="M12 2v20"/><path d="M18 10H6"/></svg>
+              Lab Cover
+            </a>
+          )}
         </nav>
 
         {/* Bottom Profile Popover Dropdown */}

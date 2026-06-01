@@ -64,6 +64,52 @@ const DoctorDashboard = () => {
   // Doctor/User Details
   const user = JSON.parse(localStorage.getItem('user') || '{"name":"Dr. Ankit Sharma","specialty":"Cardiology Specialist","id":"doc123"}');
 
+  // Dynamic role coverage state & listener
+  const [coverageState, setCoverageState] = useState(() => {
+    const saved = localStorage.getItem('medicore_pmState');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed[user.name] || {};
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return {};
+  });
+
+  useEffect(() => {
+    const syncCoverage = () => {
+      const saved = localStorage.getItem('medicore_pmState');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setCoverageState(parsed[user.name] || {});
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    syncCoverage();
+    window.addEventListener('storage', syncCoverage);
+
+    // Sync from backend database for cross-browser / cross-device support
+    const fetchBackendCoverage = async () => {
+      try {
+        const response = await api.get('/auth/role-coverage');
+        if (response.data) {
+          localStorage.setItem('medicore_pmState', JSON.stringify(response.data));
+          setCoverageState(response.data[user.name] || {});
+        }
+      } catch (err) {
+        console.error('Failed to sync coverage from backend', err);
+      }
+    };
+    fetchBackendCoverage();
+
+    return () => window.removeEventListener('storage', syncCoverage);
+  }, [user.name]);
+
   // Reactive Doctor Profile Settings States
   const [docProfile, setDocProfile] = useState({
     name: user.name || 'Dr. Ankit Sharma',
@@ -73,6 +119,52 @@ const DoctorDashboard = () => {
     signature: user.name || 'Dr. Ankit Sharma',
     realtimePharmacy: true
   });
+
+  // State declarations for Coverage sub-tabs
+  const [receptionistSubTab, setReceptionistSubTab] = useState('queue');
+  const [labSubTab, setLabSubTab] = useState('tests');
+  const [pharmacySubTab, setPharmacySubTab] = useState('queue');
+
+  // Mock structures for Coverage portals
+  const [coverageAppts, setCoverageAppts] = useState([
+    { id: 'ca-1', patient: 'Aarav Mehta', slot: '10:00 AM', status: 'Confirmed', contact: '+91 98765 43210' },
+    { id: 'ca-2', patient: 'Neha Sharma', slot: '11:30 AM', status: 'Confirmed', contact: '+91 87654 32109' },
+    { id: 'ca-3', patient: 'Kabir Dev', slot: '02:00 PM', status: 'Waiting', contact: '+91 76543 21098' }
+  ]);
+
+  const [coverageQueue, setCoverageQueue] = useState([
+    { token: 'T-04', patient: 'Sunita Roy', status: 'Waiting', time: 'Just now' },
+    { token: 'T-05', patient: 'Alok Gupta', status: 'Waiting', time: '10 mins ago' },
+    { token: 'T-06', patient: 'Rita Sen', status: 'In Consultation', time: '25 mins ago' }
+  ]);
+
+  const [coverageReagents, setCoverageReagents] = useState([
+    { id: 'rg-1', name: 'Haematology Lysing Reagent', stock: '12 Bottles', minStock: '5 Bottles', status: 'Normal' },
+    { id: 'rg-2', name: 'Creatinine Kit (Liquid)', stock: '3 Kits', minStock: '6 Kits', status: 'Low Stock' },
+    { id: 'rg-3', name: 'Bilirubin Total & Direct', stock: '8 Kits', minStock: '4 Kits', status: 'Normal' }
+  ]);
+
+  const [coverageBills, setCoverageBills] = useState([
+    { id: 'b-101', name: 'Aarav Mehta', service: 'Consultation Fee', amount: 500, paid: false },
+    { id: 'b-102', name: 'Neha Sharma', service: 'CBC + Blood Sugar Test', amount: 850, paid: true },
+    { id: 'b-103', name: 'Vimal Shah', service: 'Orthopaedics X-Ray', amount: 1200, paid: false }
+  ]);
+
+  // Auto-redirect first subtab on activeTab cover change
+  useEffect(() => {
+    if (activeTab === 'receptionist_cover') {
+      if (coverageState['rc-queue']?.on) setReceptionistSubTab('queue');
+      else if (coverageState['rc-appt']?.on) setReceptionistSubTab('appt');
+      else if (coverageState['rc-register']?.on) setReceptionistSubTab('register');
+      else if (coverageState['rc-billing']?.on) setReceptionistSubTab('billing');
+    } else if (activeTab === 'lab_cover') {
+      if (coverageState['lt-queue']?.on) setLabSubTab('tests');
+      else if (coverageState['lt-reagents']?.on) setLabSubTab('reagents');
+    } else if (activeTab === 'pharmacy_cover') {
+      if (coverageState['ph-queue']?.on) setPharmacySubTab('queue');
+      else if (coverageState['ph-stock']?.on || coverageState['dr-stockview']?.on) setPharmacySubTab('stock');
+    }
+  }, [activeTab, coverageState]);
 
   const [notification, setNotification] = useState(null); // { message: '', type: 'success' | 'error' }
   const showToastNotification = (message, type = 'success') => {
@@ -1533,7 +1625,20 @@ I have scanned the medical reference databases, but couldn't find a direct match
         .sidebar nav {
           display: flex !important;
           flex-direction: column !important;
-          height: 100% !important;
+          flex: 1 !important;
+          overflow-y: auto !important;
+          height: auto !important;
+        }
+        
+        .sidebar nav::-webkit-scrollbar {
+          width: 4px !important;
+        }
+        .sidebar nav::-webkit-scrollbar-track {
+          background: transparent !important;
+        }
+        .sidebar nav::-webkit-scrollbar-thumb {
+          background: #E2E8F0 !important;
+          border-radius: 99px !important;
         }
         .sidebar .nav-link {
           display: flex !important;
@@ -1781,6 +1886,26 @@ I have scanned the medical reference databases, but couldn't find a direct match
           <a href="#" className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('settings'); }}>
             <i data-lucide="settings"></i> Settings
           </a>
+
+          {/* DYNAMIC COVERAGE INTEGRATION LINKS */}
+          {(Object.keys(coverageState || {}).some(k => k.startsWith('rc-') && coverageState[k]?.on)) && (
+            <a href="#" className={`nav-link ${activeTab === 'receptionist_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('receptionist_cover'); }} style={{ color: '#E11D48', fontWeight: 800 }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+              Receptionist Cover
+            </a>
+          )}
+          {(Object.keys(coverageState || {}).some(k => k.startsWith('lt-') && coverageState[k]?.on)) && (
+            <a href="#" className={`nav-link ${activeTab === 'lab_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('lab_cover'); }} style={{ color: '#059669', fontWeight: 800 }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M6 18H18"/><path d="M10 14H14"/><path d="M12 2v20"/><path d="M18 10H6"/></svg>
+              Lab Cover
+            </a>
+          )}
+          {(Object.keys(coverageState || {}).some(k => (k.startsWith('ph-') || k === 'dr-stockview') && coverageState[k]?.on)) && (
+            <a href="#" className={`nav-link ${activeTab === 'pharmacy_cover' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('pharmacy_cover'); }} style={{ color: '#2563EB', fontWeight: 800 }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}><path d="M12 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Pharmacy Cover
+            </a>
+          )}
         </nav>
         
         {/* Bottom Doctor Profile Card Popover */}
@@ -1932,7 +2057,527 @@ I have scanned the medical reference databases, but couldn't find a direct match
 
       <div className="main-content">
         
-        {/* TAB 1: DASHBOARD */}
+        {/* TAB: RECEPTIONIST DYNAMIC COVERAGE */}
+        {activeTab === 'receptionist_cover' && (
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out', padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: '0 0 4px 0' }}>Receptionist Active Coverage</h2>
+                <p style={{ fontSize: '13px', color: '#64748B', margin: 0, fontWeight: 600 }}>
+                  Active coverage delegated by Administrator. All transactions logged securely.
+                </p>
+              </div>
+              <span className="badge-pill new" style={{ background: '#FFE4E6', color: '#E11D48', padding: '6px 12px', fontSize: '11px', fontWeight: 800 }}>
+                ● Active Coverage Mode
+              </span>
+            </div>
+
+            {/* Sub-navigation inside coverage */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #E2E8F0', paddingBottom: '12px', marginBottom: '24px' }}>
+              {coverageState['rc-queue']?.on && (
+                <button 
+                  className={`btn-view-detail ${receptionistSubTab === 'queue' ? 'active' : ''}`}
+                  onClick={() => setReceptionistSubTab('queue')}
+                  style={{ background: receptionistSubTab === 'queue' ? '#2563EB' : 'transparent', color: receptionistSubTab === 'queue' ? 'white' : '#64748B', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  OPD Token Queue
+                </button>
+              )}
+              {coverageState['rc-appt']?.on && (
+                <button 
+                  className={`btn-view-detail ${receptionistSubTab === 'appt' ? 'active' : ''}`}
+                  onClick={() => setReceptionistSubTab('appt')}
+                  style={{ background: receptionistSubTab === 'appt' ? '#2563EB' : 'transparent', color: receptionistSubTab === 'appt' ? 'white' : '#64748B', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Book Appointment
+                </button>
+              )}
+              {coverageState['rc-register']?.on && (
+                <button 
+                  className={`btn-view-detail ${receptionistSubTab === 'register' ? 'active' : ''}`}
+                  onClick={() => setReceptionistSubTab('register')}
+                  style={{ background: receptionistSubTab === 'register' ? '#2563EB' : 'transparent', color: receptionistSubTab === 'register' ? 'white' : '#64748B', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Patient Registration
+                </button>
+              )}
+              {coverageState['rc-billing']?.on && (
+                <button 
+                  className={`btn-view-detail ${receptionistSubTab === 'billing' ? 'active' : ''}`}
+                  onClick={() => setReceptionistSubTab('billing')}
+                  style={{ background: receptionistSubTab === 'billing' ? '#2563EB' : 'transparent', color: receptionistSubTab === 'billing' ? 'white' : '#64748B', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Billing & Receipts
+                </button>
+              )}
+            </div>
+
+            {/* SUBTAB: QUEUE */}
+            {receptionistSubTab === 'queue' && (
+              <div className="glass-card" style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>OPD Daily Token Roster</h3>
+                  <button 
+                    className="btn-view-detail"
+                    onClick={() => {
+                      showToastNotification("Calling Next Patient in Token Queue!");
+                    }}
+                  >
+                    Call Next Token
+                  </button>
+                </div>
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>TOKEN NO</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>PATIENT</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>STATUS</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>CHECK-IN TIME</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800, textAlign: 'right' }}>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coverageQueue.map((item, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                        <td style={{ padding: '16px 8px', fontWeight: 800, color: '#2563EB', fontSize: '13px' }}>{item.token}</td>
+                        <td style={{ padding: '16px 8px', fontWeight: 700, color: '#1E293B', fontSize: '13.5px' }}>{item.patient}</td>
+                        <td style={{ padding: '16px 8px' }}>
+                          <span className={`badge-pill ${item.status === 'Waiting' ? 'waiting' : 'new'}`} style={{ fontSize: '10px' }}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 8px', color: '#64748B', fontSize: '12.5px', fontWeight: 600 }}>{item.time}</td>
+                        <td style={{ padding: '16px 8px', textAlign: 'right' }}>
+                          <button 
+                            className="btn-view-detail"
+                            onClick={() => {
+                              showToastNotification(`Token ${item.token} marked as Completed!`);
+                              setCoverageQueue(prev => prev.filter(q => q.token !== item.token));
+                            }}
+                          >
+                            Mark Completed
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* SUBTAB: APPOINTMENT */}
+            {receptionistSubTab === 'appt' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
+                <div className="glass-card" style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginBottom: '20px' }}>Scheduled Slots</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {coverageAppts.map(app => (
+                      <div key={app.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', border: '1px solid #F1F5F9', borderRadius: '12px' }}>
+                        <div>
+                          <span style={{ fontSize: '11px', fontWeight: 800, color: '#2563EB', display: 'block' }}>{app.slot}</span>
+                          <span style={{ fontSize: '14px', fontWeight: 750, color: '#1E293B' }}>{app.patient}</span>
+                          <span style={{ fontSize: '11px', color: '#64748B', display: 'block', fontWeight: 600 }}>{app.contact}</span>
+                        </div>
+                        <span className="badge-pill new" style={{ fontSize: '10px' }}>{app.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="glass-card" style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginBottom: '20px' }}>Book Appointment Slot</h3>
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const name = e.target.elements.patName.value;
+                    const slot = e.target.elements.patSlot.value;
+                    const phone = e.target.elements.patPhone.value;
+                    if (!name || !phone) return;
+                    
+                    const newAppt = {
+                      id: `ca-${Date.now()}`,
+                      patient: name,
+                      slot: slot,
+                      status: 'Confirmed',
+                      contact: phone
+                    };
+                    setCoverageAppts(prev => [...prev, newAppt]);
+                    showToastNotification(`Appointment booked successfully for ${name} at ${slot}!`);
+                    e.target.reset();
+                  }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Patient Name</label>
+                        <input type="text" name="patName" style={{ width: '100%', height: '40px', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0 12px', fontSize: '13px', fontWeight: 650, outline: 'none' }} required placeholder="e.g. Rahul Sharma" />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Contact Phone</label>
+                        <input type="tel" name="patPhone" style={{ width: '100%', height: '40px', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0 12px', fontSize: '13px', fontWeight: 650, outline: 'none' }} required placeholder="e.g. +91 99887 76655" />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Time Slot</label>
+                        <select name="patSlot" style={{ width: '100%', height: '40px', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0 12px', fontSize: '13px', fontWeight: 700, color: '#475569', cursor: 'pointer', outline: 'none' }}>
+                          <option value="09:30 AM">09:30 AM</option>
+                          <option value="10:30 AM">10:30 AM</option>
+                          <option value="12:00 PM">12:00 PM</option>
+                          <option value="03:30 PM">03:30 PM</option>
+                          <option value="04:30 PM">04:30 PM</option>
+                        </select>
+                      </div>
+                      <button type="submit" className="btn-view-detail" style={{ width: '100%', height: '44px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', marginTop: '8px' }}>
+                        Book Appointment
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* SUBTAB: REGISTRATION */}
+            {receptionistSubTab === 'register' && (
+              <div className="glass-card" style={{ padding: '32px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px', maxWidth: '600px', margin: '0 auto' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', marginBottom: '8px' }}>OPD Patient Registration</h3>
+                <p style={{ fontSize: '12.5px', color: '#64748B', marginBottom: '24px', fontWeight: 600 }}>Create standard EMR clinical records for new OPD patients.</p>
+                
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const name = e.target.elements.regName.value;
+                  const phone = e.target.elements.regPhone.value;
+                  if (!name || !phone) return;
+                  showToastNotification(`Patient "${name}" registered successfully! UHID: MC-2026-${Math.floor(1000 + Math.random()*9000)} generated.`, 'success');
+                  e.target.reset();
+                }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Full Name</label>
+                      <input type="text" name="regName" style={{ width: '100%', height: '40px', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0 12px', fontSize: '13px', fontWeight: 650, outline: 'none' }} required placeholder="e.g. Priya Nair" />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Mobile Phone</label>
+                      <input type="tel" name="regPhone" style={{ width: '100%', height: '40px', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0 12px', fontSize: '13px', fontWeight: 650, outline: 'none' }} required placeholder="e.g. +91 91122 33445" />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Age (Years)</label>
+                      <input type="number" style={{ width: '100%', height: '40px', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0 12px', fontSize: '13px', fontWeight: 650, outline: 'none' }} defaultValue="28" />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Gender</label>
+                      <select style={{ width: '100%', height: '40px', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '0 12px', fontSize: '13px', fontWeight: 700, color: '#475569', cursor: 'pointer', outline: 'none' }}>
+                        <option value="Female">Female</option>
+                        <option value="Male">Male</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '24px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Residential Address</label>
+                    <textarea style={{ width: '100%', height: '70px', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', fontWeight: 650, outline: 'none', resize: 'none' }} placeholder="e.g. Sector-14, DLF Phase 1, Gurgaon" defaultValue="" />
+                  </div>
+
+                  <button type="submit" className="btn-view-detail" style={{ width: '100%', height: '46px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 800, cursor: 'pointer' }}>
+                    Register & Open EMR Account
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* SUBTAB: BILLING */}
+            {receptionistSubTab === 'billing' && (
+              <div className="glass-card" style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginBottom: '20px' }}>OPD Billing Clearance Ledger</h3>
+                
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>BILL ID</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>PATIENT</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>SERVICE</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>AMOUNT</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>STATUS</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800, textAlign: 'right' }}>ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coverageBills.map(bill => (
+                      <tr key={bill.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                        <td style={{ padding: '16px 8px', fontWeight: 800, color: '#475569', fontSize: '12.5px' }}>#{bill.id}</td>
+                        <td style={{ padding: '16px 8px', fontWeight: 700, color: '#1E293B', fontSize: '13.5px' }}>{bill.name}</td>
+                        <td style={{ padding: '16px 8px', color: '#475569', fontSize: '13px', fontWeight: 600 }}>{bill.service}</td>
+                        <td style={{ padding: '16px 8px', fontWeight: 800, color: '#0F172A', fontSize: '13.5px' }}>₹{bill.amount}</td>
+                        <td style={{ padding: '16px 8px' }}>
+                          <span className={`badge-pill ${bill.paid ? 'new' : 'waiting'}`} style={{ fontSize: '10px' }}>
+                            {bill.paid ? 'Paid' : 'Unpaid'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 8px', textAlign: 'right' }}>
+                          {!bill.paid ? (
+                            <button 
+                              className="btn-view-detail"
+                              onClick={() => {
+                                setCoverageBills(prev => prev.map(b => b.id === bill.id ? { ...b, paid: true } : b));
+                                showToastNotification(`Payment ₹${bill.amount} collected for ${bill.name}! Receipt printed.`);
+                              }}
+                            >
+                              Collect Fee
+                            </button>
+                          ) : (
+                            <button 
+                              className="btn-view-detail"
+                              style={{ borderColor: '#E2E8F0', color: '#64748B' }}
+                              onClick={() => showToastNotification("Re-printing duplicate receipt...")}
+                            >
+                              Print Receipt
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: LAB DYNAMIC COVERAGE */}
+        {activeTab === 'lab_cover' && (
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out', padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: '0 0 4px 0' }}>Laboratory Active Coverage</h2>
+                <p style={{ fontSize: '13px', color: '#64748B', margin: 0, fontWeight: 600 }}>Providing emergency clinical oversight for Diagnostic Lab. All report signing logged.</p>
+              </div>
+              <span className="badge-pill new" style={{ background: '#D1FAE5', color: '#059669', padding: '6px 12px', fontSize: '11px', fontWeight: 800 }}>
+                ● Clinical Lab Coverage
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #E2E8F0', paddingBottom: '12px', marginBottom: '24px' }}>
+              {coverageState['lt-queue']?.on && (
+                <button 
+                  className={`btn-view-detail ${labSubTab === 'tests' ? 'active' : ''}`}
+                  onClick={() => setLabSubTab('tests')}
+                  style={{ background: labSubTab === 'tests' ? '#059669' : 'transparent', color: labSubTab === 'tests' ? 'white' : '#64748B', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Emergency Test Orders
+                </button>
+              )}
+              {coverageState['lt-reagents']?.on && (
+                <button 
+                  className={`btn-view-detail ${labSubTab === 'reagents' ? 'active' : ''}`}
+                  onClick={() => setLabSubTab('reagents')}
+                  style={{ background: labSubTab === 'reagents' ? '#059669' : 'transparent', color: labSubTab === 'reagents' ? 'white' : '#64748B', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Reagents & Kits Inventory
+                </button>
+              )}
+            </div>
+
+            {/* SUBTAB: TESTS QUEUE */}
+            {labSubTab === 'tests' && (
+              <div className="glass-card" style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginBottom: '20px' }}>Diagnostic Test Orders Queue</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {[
+                    { id: 't-901', name: 'Kabir Dev', test: 'Complete Blood Count (CBC) with ESR', priority: 'High', status: 'Pending Sample' },
+                    { id: 't-902', name: 'Neha Sharma', test: 'HbA1c & Fasting Blood Sugar', priority: 'Normal', status: 'Sample Collected' },
+                    { id: 't-903', name: 'Rita Sen', test: 'Lipid Profile Screen', priority: 'Normal', status: 'Processing' }
+                  ].map(test => (
+                    <div key={test.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid #F1F5F9', borderRadius: '12px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: '#1E293B' }}>{test.name}</span>
+                          <span className={`badge-pill ${test.priority === 'High' ? 'revisit' : 'new'}`} style={{ fontSize: '9px', padding: '2px 6px' }}>{test.priority} Priority</span>
+                        </div>
+                        <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600, display: 'block', marginTop: '4px' }}>Test: <b>{test.test}</b></span>
+                        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 550 }}>Order ID: #{test.id} · Status: {test.status}</span>
+                      </div>
+                      <button 
+                        className="btn-view-detail"
+                        style={{ background: '#059669', color: 'white', border: 'none' }}
+                        onClick={() => {
+                          showToastNotification(`Lab Report signed & authorized successfully for ${test.name}!`);
+                        }}
+                      >
+                        Sign & Dispatch
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* SUBTAB: REAGENTS */}
+            {labSubTab === 'reagents' && (
+              <div className="glass-card" style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginBottom: '20px' }}>Diagnostic Reagents Ledger</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>REAGENT NAME</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>STOCK LEVEL</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>MIN SAFE STOCK</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>STATUS</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800, textAlign: 'right' }}>ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coverageReagents.map(item => (
+                      <tr key={item.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                        <td style={{ padding: '16px 8px', fontWeight: 700, color: '#1E293B', fontSize: '13.5px' }}>{item.name}</td>
+                        <td style={{ padding: '16px 8px', fontWeight: 800, color: '#0F172A', fontSize: '13.5px' }}>{item.stock}</td>
+                        <td style={{ padding: '16px 8px', color: '#64748B', fontSize: '13px', fontWeight: 600 }}>{item.minStock}</td>
+                        <td style={{ padding: '16px 8px' }}>
+                          <span className={`badge-pill ${item.status === 'Normal' ? 'new' : 'revisit'}`} style={{ fontSize: '10px' }}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 8px', textAlign: 'right' }}>
+                          {item.status === 'Low Stock' ? (
+                            <button 
+                              className="btn-view-detail"
+                              onClick={() => {
+                                setCoverageReagents(prev => prev.map(r => r.id === item.id ? { ...r, stock: '10 Kits', status: 'Normal' } : r));
+                                showToastNotification(`Emergency restock order issued for ${item.name}!`);
+                              }}
+                            >
+                              Emergency Order
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600, paddingRight: '12px' }}>Sufficient</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: PHARMACY DYNAMIC COVERAGE */}
+        {activeTab === 'pharmacy_cover' && (
+          <div className="tab-content active" style={{ animation: 'slideUp 0.4s ease-out', padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: '0 0 4px 0' }}>Pharmacy Active Coverage</h2>
+                <p style={{ fontSize: '13px', color: '#64748B', margin: 0, fontWeight: 600 }}>Dispensing and inventory controls active. Safe drug parameters apply.</p>
+              </div>
+              <span className="badge-pill new" style={{ background: '#EFF6FF', color: '#2563EB', padding: '6px 12px', fontSize: '11px', fontWeight: 800 }}>
+                ● Pharmacy Duty Cover
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #E2E8F0', paddingBottom: '12px', marginBottom: '24px' }}>
+              {coverageState['ph-queue']?.on && (
+                <button 
+                  className={`btn-view-detail ${pharmacySubTab === 'queue' ? 'active' : ''}`}
+                  onClick={() => setPharmacySubTab('queue')}
+                  style={{ background: pharmacySubTab === 'queue' ? '#2563EB' : 'transparent', color: pharmacySubTab === 'queue' ? 'white' : '#64748B', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Prescription Dispensing
+                </button>
+              )}
+              {(coverageState['ph-stock']?.on || coverageState['dr-stockview']?.on) && (
+                <button 
+                  className={`btn-view-detail ${pharmacySubTab === 'stock' ? 'active' : ''}`}
+                  onClick={() => setPharmacySubTab('stock')}
+                  style={{ background: pharmacySubTab === 'stock' ? '#2563EB' : 'transparent', color: pharmacySubTab === 'stock' ? 'white' : '#64748B', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Medicine Inventory
+                </button>
+              )}
+            </div>
+
+            {/* SUBTAB: DISPENSING QUEUE */}
+            {pharmacySubTab === 'queue' && (
+              <div className="glass-card" style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginBottom: '20px' }}>Active Prescription Dispensing Queue</h3>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {[
+                    { id: 'rx-201', patient: 'Aarav Mehta', med: 'Tab. Amoxicillin 500mg (10 Tabs)', qty: 1, type: 'Antibiotic' },
+                    { id: 'rx-202', patient: 'Neha Sharma', med: 'Tab. Metformin 1000mg ER (30 Tabs)', qty: 1, type: 'Chronic' },
+                    { id: 'rx-203', patient: 'Kabir Dev', med: 'Syp. Glycodin Cough Syrup 100ml', qty: 2, type: 'OTC' }
+                  ].map(item => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid #F1F5F9', borderRadius: '12px' }}>
+                      <div>
+                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#1E293B' }}>{item.patient}</span>
+                        <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600, display: 'block', marginTop: '4px' }}>Medication: <b>{item.med}</b> · Qty: {item.qty}</span>
+                        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 550 }}>Rx ID: #{item.id} · Category: {item.type}</span>
+                      </div>
+                      <button 
+                        className="btn-view-detail"
+                        style={{ background: '#2563EB', color: 'white', border: 'none' }}
+                        onClick={() => {
+                          showToastNotification(`Prescription ${item.id} Dispensed successfully & inventory levels decremented!`);
+                        }}
+                      >
+                        Dispense & Pack
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* SUBTAB: PHARMACY STOCK */}
+            {pharmacySubTab === 'stock' && (
+              <div className="glass-card" style={{ padding: '24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginBottom: '20px' }}>Emergency Medicine Inventory Stock</h3>
+                
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>DRUG NAME</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>AVAILABLE STOCK</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>EXPIRY DATE</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800 }}>STATUS</th>
+                      <th style={{ padding: '12px 8px', color: '#64748B', fontSize: '12px', fontWeight: 800, textAlign: 'right' }}>ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { id: 'd-1', name: 'Tab. Paracetamol 650mg (IP)', stock: '4,500 Tabs', expiry: 'Oct 2027', status: 'Normal' },
+                      { id: 'd-2', name: 'Inj. Insulin Glargine 100 IU', stock: '12 Vials', expiry: 'Aug 2026', status: 'Low Stock' },
+                      { id: 'd-3', name: 'Tab. Atorvastatin 10mg', stock: '2,800 Tabs', expiry: 'Jan 2028', status: 'Normal' }
+                    ].map(drug => (
+                      <tr key={drug.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                        <td style={{ padding: '16px 8px', fontWeight: 700, color: '#1E293B', fontSize: '13.5px' }}>{drug.name}</td>
+                        <td style={{ padding: '16px 8px', fontWeight: 800, color: '#0F172A', fontSize: '13.5px' }}>{drug.stock}</td>
+                        <td style={{ padding: '16px 8px', color: '#64748B', fontSize: '13px', fontWeight: 600 }}>{drug.expiry}</td>
+                        <td style={{ padding: '16px 8px' }}>
+                          <span className={`badge-pill ${drug.status === 'Normal' ? 'new' : 'revisit'}`} style={{ fontSize: '10px' }}>
+                            {drug.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 8px', textAlign: 'right' }}>
+                          {drug.status === 'Low Stock' ? (
+                            <button 
+                              className="btn-view-detail"
+                              onClick={() => {
+                                showToastNotification(`Purchase Order raised for ${drug.name}!`);
+                              }}
+                            >
+                              Order Restock
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600, paddingRight: '12px' }}>Sufficient</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
         {activeTab === 'dash' && (() => {
           const selectedDateStr = formatDateString(selectedDate);
           

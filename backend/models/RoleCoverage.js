@@ -1,0 +1,19 @@
+const mongoose = require('mongoose');
+
+const roleCoverageSchema = new mongoose.Schema({
+  tenantId: {
+    type: String,
+    required: true,
+    default: 'city_hospital',
+    index: true
+  },
+  state: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  }
+}, { timestamps: true });
+
+// Ensure unique document per tenant
+roleCoverageSchema.index({ tenantId: 1 }, { unique: true });
+
+module.exports = mongoose.model('RoleCoverage', roleCoverageSchema);

@@ -21,8 +21,62 @@ if (typeof window !== 'undefined') {
   };
 }
 
+const pmModules = [
+  /* ---- DOCTOR ---- */
+  { id: 'dr-consult',    name: 'Patient consultation notes', desc: 'Write SOAP notes, diagnosis, history', group: 'Doctor — clinical', coreFor: ['doctor'] },
+  { id: 'dr-rx',         name: 'Prescription writer',        desc: 'Prescribe medicines, generate slip',   group: 'Doctor — clinical', coreFor: ['doctor'] },
+  { id: 'dr-laborder',   name: 'Test order / lab referral',  desc: 'Order tests, track reports',           group: 'Doctor — clinical', coreFor: ['doctor'] },
+  { id: 'dr-history',    name: 'Patient visit history',      desc: 'View past visits across hospitals',    group: 'Doctor — clinical', coreFor: ['doctor'] },
+  { id: 'dr-discharge',  name: 'Discharge summary',          desc: 'Generate & sign discharge summary',    group: 'Doctor — clinical', coreFor: [] },
+  { id: 'dr-stockview',  name: 'Pharmacy stock view',        desc: 'Read-only view of medicine levels',    group: 'Doctor — clinical', coreFor: [] },
+  /* ---- RECEPTIONIST ---- */
+  { id: 'rc-register',   name: 'Patient registration',       desc: 'Register new & search global registry',group: 'Receptionist — core', coreFor: ['receptionist'] },
+  { id: 'rc-appt',       name: 'Appointment booking',        desc: 'Book, reschedule, cancel appointments',group: 'Receptionist — core', coreFor: ['receptionist'] },
+  { id: 'rc-queue',      name: 'OPD token queue',            desc: 'Manage daily queue, call next',        group: 'Receptionist — core', coreFor: ['receptionist'] },
+  { id: 'rc-upload',     name: 'Lab report upload',          desc: 'Upload external lab reports',          group: 'Receptionist — core', coreFor: ['receptionist'] },
+  { id: 'rc-billing',    name: 'Billing & receipts',         desc: 'Generate consultation receipts',       group: 'Receptionist — ops', coreFor: [] },
+  { id: 'rc-reorder',    name: 'Pharmacy stock reorder',     desc: 'Raise reorder requests for medicines', group: 'Receptionist — ops', coreFor: [] },
+  { id: 'rc-labprint',   name: 'Lab slip printing',          desc: 'Print / WhatsApp lab referral slips',  group: 'Receptionist — ops', coreFor: [] },
+  /* ---- LAB TECH ---- */
+  { id: 'lt-queue',      name: 'Test order queue',           desc: 'View & accept pending lab orders',     group: 'Lab tech — core', coreFor: ['lab'] },
+  { id: 'lt-upload',     name: 'Report upload',              desc: 'Upload completed reports, link referral',group: 'Lab tech — core', coreFor: ['lab'] },
+  { id: 'lt-reagents',   name: 'Lab reagents inventory',     desc: 'View & update reagent stock',          group: 'Lab tech — core', coreFor: ['lab'] },
+  { id: 'lt-dispatch',   name: 'Report dispatch',            desc: 'Send report to doctor & patient',      group: 'Lab tech — ops', coreFor: [] },
+  { id: 'lt-extlab',     name: 'External lab coordination',  desc: 'Log tests sent to external lab',       group: 'Lab tech — ops', coreFor: [] },
+  /* ---- PHARMACIST ---- */
+  { id: 'ph-queue',      name: 'Prescription queue',         desc: 'View incoming prescriptions in real time',group: 'Pharmacist — core', coreFor: ['pharmacy'] },
+  { id: 'ph-dispense',   name: 'Medicine dispensing',        desc: 'Mark medicines dispensed',             group: 'Pharmacist — core', coreFor: ['pharmacy'] },
+  { id: 'ph-stock',      name: 'Stock inventory',            desc: 'Full view of stock, expiry, batches',  group: 'Pharmacist — core', coreFor: ['pharmacy'] },
+  { id: 'ph-reorder',    name: 'Reorder management',         desc: 'Raise purchase orders to suppliers',   group: 'Pharmacist — core', coreFor: ['pharmacy'] },
+  { id: 'ph-billing',    name: 'Prescription billing',       desc: 'Generate pharmacy bill & collect payment',group: 'Pharmacist — ops', coreFor: [] },
+  { id: 'ph-controlled', name: 'Controlled drugs log',       desc: 'Maintain NDPS narcotics register',     group: 'Pharmacist — ops', coreFor: [] },
+  /* ---- NURSE ---- */
+  { id: 'nu-vitals',     name: 'Patient vitals entry',       desc: 'Enter BP, temp, weight, SpO2',         group: 'Nurse — core', coreFor: ['nurse'] },
+  { id: 'nu-ward',       name: 'Ward round notes',           desc: 'Log inpatient round notes per shift',  group: 'Nurse — core', coreFor: ['nurse'] },
+  { id: 'nu-labassist',  name: 'Lab sample assist',          desc: 'Assist with sample collection',        group: 'Nurse — ops', coreFor: [] },
+  { id: 'nu-dispense',   name: 'Medicine dispensing (assist)',desc: 'Assist pharmacist in dispensing',     group: 'Nurse — ops', coreFor: [] },
+];
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Dynamic Role Coverage System state
+  const [pmState, setPmState] = useState(() => {
+    const saved = localStorage.getItem('medicore_pmState');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return {
+      'Dr. Anjali Rao': {},
+      'Sunita Receptionist': {},
+      'Vikram Pharmacist': {},
+      'Roshni': {}
+    };
+  });
+  const [pmSelectedStaffId, setPmSelectedStaffId] = useState(null);
+  const [pmPendingChanges, setPmPendingChanges] = useState({}); // { permId: { on, type, expiresIn } }
+  const [pmReason, setPmReason] = useState('');
+
   const [staff, setStaff] = useState([
     {
       id: '1',
@@ -272,7 +326,14 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchStaff();
     fetchInventoryAlerts();
+    fetchRoleCoverage();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'permissions' && !pmSelectedStaffId && staff.length > 0) {
+      setPmSelectedStaffId(staff[0].id || staff[0].name);
+    }
+  }, [activeTab, staff, pmSelectedStaffId]);
 
   // Centralized Scroll Lock Manager (State-Free, Layout-Stable, zero-flicker)
   useEffect(() => {
@@ -341,6 +402,7 @@ const AdminDashboard = () => {
     else if (activeTab === 'subscription') { main = "Subscription"; sub = "enterprise license"; }
     else if (activeTab === 'maintenance') { main = "Maintenance"; sub = "system services"; }
     else if (activeTab === 'updates') { main = "Updates"; sub = "patches & hotfixes"; }
+    else if (activeTab === 'permissions') { main = "Role Coverage"; sub = "access & delegation control"; }
 
     return (
       <span className="header-title">
@@ -369,6 +431,18 @@ const AdminDashboard = () => {
       }
     } catch (err) {
       console.error('Failed to load inventory alerts', err);
+    }
+  };
+
+  const fetchRoleCoverage = async () => {
+    try {
+      const response = await api.get('/auth/role-coverage');
+      if (response.data) {
+        setPmState(response.data);
+        localStorage.setItem('medicore_pmState', JSON.stringify(response.data));
+      }
+    } catch (err) {
+      console.error('Failed to load role coverage from backend', err);
     }
   };
 
@@ -2426,6 +2500,485 @@ const AdminDashboard = () => {
             padding-top: 12px !important;
           }
         }
+
+        /* ----- ROLE COVERAGE / PERMISSIONS MANAGER TAB ----- */
+        .pm-container {
+          display: grid;
+          grid-template-columns: 300px 1fr;
+          gap: 28px;
+          padding: 0 40px 32px 40px;
+          animation: adminFadeIn 0.3s ease-out;
+        }
+
+        .pm-staff-pane {
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 16px;
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.01);
+          height: fit-content;
+        }
+
+        .pm-pane-title {
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: #475569;
+          letter-spacing: 0.5px;
+          margin-bottom: 4px;
+        }
+
+        .pm-staff-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          max-height: 500px;
+          overflow-y: auto;
+        }
+
+        .pm-staff-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px;
+          border-radius: 12px;
+          border: 1px solid transparent;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .pm-staff-item:hover {
+          background-color: #F8FAFC;
+          border-color: #E2E8F0;
+        }
+
+        .pm-staff-item.active {
+          background-color: #EFF6FF;
+          border-color: #BFDBFE;
+        }
+
+        .pm-staff-avatar {
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          font-weight: 800;
+          text-transform: uppercase;
+        }
+
+        .pm-staff-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .pm-staff-name {
+          font-size: 13.5px;
+          font-weight: 750;
+          color: #0F172A;
+        }
+
+        .pm-staff-role {
+          font-size: 11px;
+          color: #64748B;
+          font-weight: 600;
+          text-transform: capitalize;
+        }
+
+        .pm-detail-pane {
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 16px;
+          padding: 28px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.01);
+          min-height: 400px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .pm-empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          flex: 1;
+          color: #94A3B8;
+          padding: 60px 20px;
+        }
+
+        .pm-empty-icon {
+          width: 64px;
+          height: 64px;
+          background: #F1F5F9;
+          color: #64748B;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 16px;
+        }
+
+        .pm-editor-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 20px;
+          border-bottom: 1px solid #E2E8F0;
+          margin-bottom: 24px;
+        }
+
+        .pm-group-box {
+          border: 1px solid #E2E8F0;
+          border-radius: 12px;
+          margin-bottom: 20px;
+          overflow: hidden;
+        }
+
+        .pm-group-title {
+          background: #F8FAFC;
+          padding: 12px 18px;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: #475569;
+          border-bottom: 1px solid #E2E8F0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .pm-module-row {
+          display: flex;
+          flex-direction: column;
+          border-bottom: 1px solid #F1F5F9;
+          transition: background-color 0.2s;
+        }
+
+        .pm-module-row:last-child {
+          border-bottom: none;
+        }
+
+        .pm-module-main {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px 20px;
+        }
+
+        .pm-module-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          flex: 1;
+          padding-right: 20px;
+        }
+
+        .pm-module-name-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .pm-module-name {
+          font-size: 13.5px;
+          font-weight: 750;
+          color: #1E293B;
+        }
+
+        .pm-badge {
+          font-size: 10px;
+          font-weight: 800;
+          padding: 3px 8px;
+          border-radius: 6px;
+          text-transform: uppercase;
+        }
+
+        .pm-badge.core {
+          background: #F1F5F9;
+          color: #64748B;
+        }
+
+        .pm-badge.temp {
+          background: #FFF7ED;
+          color: #C2410C;
+          border: 1px solid #FED7AA;
+        }
+
+        .pm-badge.perm {
+          background: #ECFDF5;
+          color: #047857;
+          border: 1px solid #A7F3D0;
+        }
+
+        .pm-badge.pending {
+          background: #EFF6FF;
+          color: #1D4ED8;
+          border: 1px solid #BFDBFE;
+        }
+
+        .pm-module-desc {
+          font-size: 12px;
+          color: #64748B;
+          font-weight: 550;
+        }
+
+        /* Toggle switches */
+        .pm-toggle-switch {
+          position: relative;
+          width: 44px;
+          height: 24px;
+          background-color: #E2E8F0;
+          border-radius: 99px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .pm-toggle-switch.active {
+          background-color: #2563EB;
+        }
+
+        .pm-toggle-switch.disabled {
+          cursor: not-allowed;
+          opacity: 0.5;
+        }
+
+        .pm-revoke-btn {
+          background-color: #FFF1F2;
+          color: #E11D48;
+          border: 1px solid #FFE4E6;
+          border-radius: 8px;
+          padding: 5px 12px;
+          font-size: 11px;
+          font-weight: 750;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          outline: none;
+          font-family: inherit;
+        }
+
+        .pm-revoke-btn:hover {
+          background-color: #FFE4E6;
+          border-color: #FDA4AF;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(225, 29, 72, 0.08);
+        }
+
+        .pm-revoke-btn:active {
+          transform: translateY(0);
+        }
+
+        .pm-toggle-thumb {
+          position: absolute;
+          top: 3px;
+          left: 3px;
+          width: 18px;
+          height: 18px;
+          background: white;
+          border-radius: 50%;
+          transition: transform 0.2s;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+
+        .pm-toggle-switch.active .pm-toggle-thumb {
+          transform: translateX(20px);
+        }
+
+        /* Settings pane details */
+        .pm-duration-bar {
+          background: #F8FAFC;
+          border-top: 1px dashed #E2E8F0;
+          padding: 12px 20px;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+
+        .pm-duration-select {
+          height: 32px;
+          border: 1px solid #E2E8F0;
+          border-radius: 8px;
+          background: white;
+          padding: 0 8px;
+          font-size: 12px;
+          font-weight: 700;
+          color: #475569;
+          outline: none;
+          cursor: pointer;
+        }
+
+        /* Sticky bottom action footer */
+        .pm-sticky-footer {
+          position: fixed;
+          bottom: 0;
+          right: 0;
+          left: 260px;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
+          border-top: 1px solid #E2E8F0;
+          padding: 16px 40px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          z-index: 1000;
+          box-shadow: 0 -10px 30px rgba(0,0,0,0.03);
+          transition: left 0.3s ease;
+        }
+
+        @media (max-width: 1024px) {
+          .pm-container {
+            grid-template-columns: 1fr;
+          }
+          .pm-sticky-footer {
+            left: 0 !important;
+            padding: 16px 20px !important;
+          }
+        }
+
+        .pm-footer-left {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex: 1;
+          max-width: 500px;
+        }
+
+        .pm-footer-changes {
+          font-size: 13px;
+          font-weight: 800;
+          color: #1E293B;
+          flex-shrink: 0;
+        }
+
+        .pm-reason-input {
+          flex: 1;
+          height: 38px;
+          border: 1.5px solid #E2E8F0;
+          border-radius: 8px;
+          padding: 0 12px;
+          font-size: 13px;
+          font-weight: 600;
+          outline: none;
+          transition: border-color 0.2s;
+        }
+
+        .pm-reason-input:focus {
+          border-color: #2563EB;
+        }
+
+        .pm-footer-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .pm-apply-btn {
+          height: 38px;
+          background: #10B981;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          padding: 0 18px;
+          font-size: 13px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .pm-apply-btn:hover {
+          background: #059669;
+        }
+
+        .pm-apply-btn:disabled {
+          background: #A7F3D0;
+          cursor: not-allowed;
+        }
+
+        .pm-discard-btn {
+          background: transparent;
+          color: #64748B;
+          border: 1px solid #E2E8F0;
+          border-radius: 8px;
+          padding: 0 16px;
+          height: 38px;
+          font-size: 13px;
+          font-weight: 750;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .pm-discard-btn:hover {
+          background: #F1F5F9;
+          color: #0F172A;
+        }
+
+        /* Overrides ledger widget */
+        .pm-overrides-card {
+          margin-top: 28px;
+          border: 1px solid #E2E8F0;
+          border-radius: 12px;
+          padding: 24px;
+          background: #FFFFFF;
+        }
+
+        .pm-overrides-title {
+          font-size: 14px;
+          font-weight: 800;
+          color: #1E293B;
+          margin: 0 0 16px 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .pm-override-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 0;
+          border-bottom: 1px solid #F1F5F9;
+        }
+
+        .pm-override-row:last-child {
+          border-bottom: none;
+          padding-bottom: 0;
+        }
+
+        .pm-override-row:first-child {
+          padding-top: 0;
+        }
+
+        .pm-override-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .pm-override-staff {
+          font-size: 13.5px;
+          font-weight: 750;
+          color: #1E293B;
+        }
+
+        .pm-override-perm-name {
+          font-size: 12px;
+          color: #64748B;
+          font-weight: 600;
+        }
+
+        .pm-override-reason {
+          font-size: 11px;
+          color: #94A3B8;
+          font-style: italic;
+          font-weight: 550;
+        }
       `}</style>
 
       {/* Mobile Sidebar Backdrop Overlay */}
@@ -2499,6 +3052,13 @@ const AdminDashboard = () => {
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
               <span>Staff</span>
+            </div>
+            <div 
+              className={`sidebar-link ${activeTab === 'permissions' ? 'active' : ''}`}
+              onClick={() => setActiveTab('permissions')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+              <span>Role Coverage</span>
             </div>
           </div>
 
@@ -4034,6 +4594,424 @@ const AdminDashboard = () => {
             </div>
           </div>
         )}
+
+        {/* 11. Role Coverage / Permissions Management */}
+        {activeTab === 'permissions' && (() => {
+          const selectedStaff = staff.find(s => s.id === pmSelectedStaffId || s.name === pmSelectedStaffId);
+          
+          // Compute system active overrides list
+          const activeOverridesList = [];
+          Object.keys(pmState || {}).forEach(staffName => {
+            Object.keys(pmState[staffName] || {}).forEach(permId => {
+              const over = pmState[staffName][permId];
+              if (over?.on) {
+                const matchingPerm = pmModules.find(m => m.id === permId);
+                activeOverridesList.push({
+                  staffName,
+                  permId,
+                  permName: matchingPerm?.name || permId,
+                  type: over.type,
+                  expiresIn: over.expiresIn,
+                  note: over.note
+                });
+              }
+            });
+          });
+
+          // Direct revoke function
+          const handleDirectRevoke = (staffName, permId) => {
+            const nextState = { ...pmState };
+            if (nextState[staffName]) {
+              nextState[staffName] = { ...nextState[staffName] };
+              delete nextState[staffName][permId];
+            }
+            localStorage.setItem('medicore_pmState', JSON.stringify(nextState));
+            setPmState(nextState);
+
+            api.post('/auth/role-coverage', { state: nextState })
+              .catch(err => console.error('Failed to sync direct revoke to backend', err));
+
+            // Audit log
+            const newAuditLog = {
+              id: `pm-audit-${Date.now()}`,
+              title: `Role coverage revoked for ${staffName}`,
+              category: 'Staff management',
+              tag: 'Staff',
+              subtext: `Permission [${permId}] revoked immediately by admin. · Just now`,
+              type: 'STAFF',
+              hasReview: false
+            };
+            setAuditLogs(prev => [newAuditLog, ...prev]);
+            setSuccess(`Revoked permission [${permId}] for ${staffName} successfully!`);
+            setTimeout(() => setSuccess(''), 3000);
+          };
+
+          const pendingCount = Object.keys(pmPendingChanges).length;
+
+          const handleApplyPendingChanges = () => {
+            if (!pmReason) return;
+            const nextState = { ...pmState };
+            
+            Object.keys(pmPendingChanges).forEach(permId => {
+              const change = pmPendingChanges[permId];
+              if (!nextState[selectedStaff.name]) {
+                nextState[selectedStaff.name] = {};
+              } else {
+                nextState[selectedStaff.name] = { ...nextState[selectedStaff.name] };
+              }
+
+              if (change.on) {
+                nextState[selectedStaff.name][permId] = {
+                  on: true,
+                  type: change.type,
+                  expiresIn: change.type === 'temp' ? change.expiresIn : null,
+                  note: pmReason
+                };
+              } else {
+                delete nextState[selectedStaff.name][permId];
+              }
+            });
+
+            localStorage.setItem('medicore_pmState', JSON.stringify(nextState));
+            setPmState(nextState);
+
+            api.post('/auth/role-coverage', { state: nextState })
+              .catch(err => console.error('Failed to sync permission updates to backend', err));
+
+            // Audit trail entry
+            const newAuditLog = {
+              id: `pm-audit-${Date.now()}`,
+              title: `Role coverage updated — ${selectedStaff.name}`,
+              category: 'Staff management',
+              tag: 'Staff',
+              subtext: `${pendingCount} permissions modified. Reason: ${pmReason} · By admin Kunal · Just now`,
+              type: 'STAFF',
+              hasReview: false
+            };
+            setAuditLogs(prev => [newAuditLog, ...prev]);
+
+            setSuccess(`Permissions updated successfully for ${selectedStaff.name}!`);
+            setTimeout(() => setSuccess(''), 3000);
+
+            // Clear state
+            setPmPendingChanges({});
+            setPmReason('');
+          };
+
+          return (
+            <div className="pm-container">
+              {/* Left pane - Staff List Selector */}
+              <div className="pm-staff-pane">
+                <span className="pm-pane-title">Hospital Roster</span>
+                <div className="pm-staff-list">
+                  {staff.map(s => {
+                    const isActive = pmSelectedStaffId === s.id || pmSelectedStaffId === s.name;
+                    // Count active overrides for this staff
+                    const overrideCount = Object.keys(pmState[s.name] || {}).filter(k => pmState[s.name][k]?.on).length;
+                    
+                    return (
+                      <div 
+                        key={s.id || s.name} 
+                        className={`pm-staff-item ${isActive ? 'active' : ''}`}
+                        onClick={() => {
+                          setPmSelectedStaffId(s.id || s.name);
+                          setPmPendingChanges({});
+                          setPmReason('');
+                        }}
+                      >
+                        <div 
+                          className="pm-staff-avatar"
+                          style={{
+                            backgroundColor: s.avatarColor === 'purple' ? '#FAF5FF' : s.avatarColor === 'gold' ? '#FFFBEB' : '#EFF6FF',
+                            color: s.avatarColor === 'purple' ? '#7C3AED' : s.avatarColor === 'gold' ? '#D97706' : '#2563EB',
+                            border: `1px solid ${s.avatarColor === 'purple' ? '#E9D5FF' : s.avatarColor === 'gold' ? '#FEF3C7' : '#BFDBFE'}`
+                          }}
+                        >
+                          {s.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                        </div>
+                        <div className="pm-staff-info">
+                          <span className="pm-staff-name">{s.name}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className="pm-staff-role">{s.role}</span>
+                            {overrideCount > 0 && (
+                              <span style={{ fontSize: '9px', background: '#FEF3C7', color: '#B45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
+                                {overrideCount} Overrides
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right pane - Permissions Grid Editor */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div className="pm-detail-pane">
+                  {selectedStaff ? (
+                    <>
+                      <div className="pm-editor-header">
+                        <div>
+                          <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: '0 0 4px 0' }}>
+                            Coverage Delegation Grid
+                          </h2>
+                          <p style={{ fontSize: '12.5px', color: '#64748B', margin: 0, fontWeight: 600 }}>
+                            Configure modules for <span style={{ color: '#2563EB', fontWeight: 750 }}>{selectedStaff.name}</span> ({selectedStaff.role} · {selectedStaff.dept})
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <span style={{ fontSize: '11px', background: '#F1F5F9', padding: '6px 12px', borderRadius: '8px', color: '#475569', fontWeight: 700 }}>
+                            Staff ID: #{selectedStaff.id}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Render permission groupings */}
+                      {Array.from(new Set(pmModules.map(m => m.group))).map(groupName => {
+                        const groupPerms = pmModules.filter(m => m.group === groupName);
+                        
+                        return (
+                          <div key={groupName} className="pm-group-box">
+                            <div className="pm-group-title">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                              {groupName}
+                            </div>
+                            
+                            {groupPerms.map(perm => {
+                              const isCore = perm.coreFor.includes(selectedStaff.role);
+                              const activeOverride = pmState[selectedStaff.name]?.[perm.id];
+                              const pendingChange = pmPendingChanges[perm.id];
+                              
+                              // Compute active state
+                              let activeState = false;
+                              if (isCore) {
+                                activeState = true;
+                              } else if (pendingChange !== undefined) {
+                                activeState = pendingChange.on;
+                              } else {
+                                activeState = activeOverride?.on === true;
+                              }
+
+                              return (
+                                <div key={perm.id} className="pm-module-row animate-in">
+                                  <div className="pm-module-main">
+                                    <div className="pm-module-info">
+                                      <div className="pm-module-name-row">
+                                        <span className="pm-module-name">{perm.name}</span>
+                                        {isCore && <span className="pm-badge core">Core</span>}
+                                        {pendingChange !== undefined && (
+                                          <span className="pm-badge pending">
+                                            Pending {pendingChange.on ? 'Grant' : 'Revoke'}
+                                          </span>
+                                        )}
+                                        {(!isCore && pendingChange === undefined && activeOverride?.on) && (
+                                          <span className={`pm-badge ${activeOverride.type}`}>
+                                            {activeOverride.type === 'temp' ? `Temp cover (${activeOverride.expiresIn})` : 'Perm supervisor'}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="pm-module-desc">{perm.desc}</span>
+                                    </div>
+
+                                    {/* Action Toggle Switch */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                      {(!isCore && pendingChange === undefined && activeOverride?.on) && (
+                                        <button 
+                                          className="pm-revoke-btn"
+                                          onClick={() => handleDirectRevoke(selectedStaff.name, perm.id)}
+                                        >
+                                          Revoke Cover
+                                        </button>
+                                      )}
+                                      
+                                      <div 
+                                        className={`pm-toggle-switch ${activeState ? 'active' : ''} ${isCore ? 'disabled' : ''}`}
+                                        onClick={() => {
+                                          if (isCore) return;
+                                          const wasOn = activeOverride?.on || false;
+                                          const currentOn = pendingChange !== undefined ? pendingChange.on : wasOn;
+                                          const nextOn = !currentOn;
+                                          
+                                          setPmPendingChanges(prev => {
+                                            const copy = { ...prev };
+                                            if (nextOn === wasOn) {
+                                              delete copy[perm.id];
+                                            } else {
+                                              copy[perm.id] = {
+                                                on: nextOn,
+                                                type: activeOverride?.type || 'temp',
+                                                expiresIn: activeOverride?.expiresIn || 'Today midnight'
+                                              };
+                                            }
+                                            return copy;
+                                          });
+                                        }}
+                                      >
+                                        <div className="pm-toggle-thumb" />
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Render Duration / Interval Settings */}
+                                  {(activeState && !isCore) && (
+                                    <div className="pm-duration-bar">
+                                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase' }}>
+                                        Coverage Interval
+                                      </span>
+                                      
+                                      <select
+                                        className="pm-duration-select"
+                                        value={pendingChange !== undefined ? pendingChange.type : (activeOverride?.type || 'temp')}
+                                        onChange={(e) => {
+                                          const nextType = e.target.value;
+                                          const wasOn = activeOverride?.on || false;
+                                          const currentOn = pendingChange !== undefined ? pendingChange.on : wasOn;
+                                          
+                                          setPmPendingChanges(prev => ({
+                                            ...prev,
+                                            [perm.id]: {
+                                              on: currentOn,
+                                              type: nextType,
+                                              expiresIn: nextType === 'temp' ? 'Today midnight' : null
+                                            }
+                                          }));
+                                        }}
+                                      >
+                                        <option value="temp">Temporary Override</option>
+                                        <option value="perm">Permanent Supervisor</option>
+                                      </select>
+
+                                      {(pendingChange !== undefined ? pendingChange.type : (activeOverride?.type || 'temp')) === 'temp' && (
+                                        <select
+                                          className="pm-duration-select"
+                                          value={pendingChange !== undefined ? pendingChange.expiresIn : (activeOverride?.expiresIn || 'Today midnight')}
+                                          onChange={(e) => {
+                                            const nextExpires = e.target.value;
+                                            const wasOn = activeOverride?.on || false;
+                                            const currentOn = pendingChange !== undefined ? pendingChange.on : wasOn;
+                                            const currentType = pendingChange !== undefined ? pendingChange.type : (activeOverride?.type || 'temp');
+                                            
+                                            setPmPendingChanges(prev => ({
+                                              ...prev,
+                                              [perm.id]: {
+                                                on: currentOn,
+                                                type: currentType,
+                                                expiresIn: nextExpires
+                                              }
+                                            }));
+                                          }}
+                                        >
+                                          <option value="Today midnight">1 Day (Expires Today midnight)</option>
+                                          <option value="3 days">3 Days (72 Hours)</option>
+                                          <option value="7 days">7 Days (1 Week)</option>
+                                          <option value="14 days">14 Days (2 Weeks)</option>
+                                          <option value="30 days">30 Days (1 Month)</option>
+                                        </select>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <div className="pm-empty-state">
+                      <div className="pm-empty-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg>
+                      </div>
+                      <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#1E293B', margin: '0 0 4px 0' }}>No Staff Selected</h3>
+                      <p style={{ fontSize: '12px', color: '#94A3B8', margin: 0, fontWeight: 600 }}>Please choose a staff member from the roster to delegate roles.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Active Overrides Ledger Widget */}
+                <div className="pm-overrides-card animate-in">
+                  <h3 className="pm-overrides-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                    Hospital Active Coverage Overrides Ledger ({activeOverridesList.length})
+                  </h3>
+                  
+                  {activeOverridesList.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      {activeOverridesList.map(item => (
+                        <div key={`${item.staffName}-${item.permId}`} className="pm-override-row animate-in">
+                          <div className="pm-override-info">
+                            <span className="pm-override-staff">{item.staffName}</span>
+                            <span className="pm-override-perm-name">
+                              Delegated: <b>{item.permName}</b> (Code: {item.permId})
+                            </span>
+                            {item.note && (
+                              <span className="pm-override-reason">Reason: "{item.note}"</span>
+                            )}
+                          </div>
+                          
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span className={`pm-badge ${item.type}`}>
+                              {item.type === 'temp' ? `Temp override (${item.expiresIn})` : 'Perm supervisor'}
+                            </span>
+                            <button 
+                              className="pm-revoke-btn"
+                              onClick={() => handleDirectRevoke(item.staffName, item.permId)}
+                            >
+                              Revoke Now
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: '12.5px', color: '#64748B', fontWeight: 600, textAlign: 'center', padding: '20px 0' }}>
+                      No active delegations in the system currently. All staff are operating under default role boundaries.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Sticky bottom changes validation bar */}
+              {pendingCount > 0 && (
+                <div className="pm-sticky-footer">
+                  <div className="pm-footer-left animate-in">
+                    <span className="pm-footer-changes">
+                      Pending Changes: {pendingCount} module{pendingCount > 1 ? 's' : ''} modified
+                    </span>
+                    <input 
+                      type="text"
+                      className="pm-reason-input"
+                      placeholder="Mandatory reason for delegation (e.g. receptionist Sunita absent today)..."
+                      value={pmReason}
+                      onChange={e => setPmReason(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="pm-footer-actions">
+                    <button 
+                      className="pm-discard-btn"
+                      onClick={() => {
+                        setPmPendingChanges({});
+                        setPmReason('');
+                      }}
+                    >
+                      Discard
+                    </button>
+                    <button 
+                      className="pm-apply-btn"
+                      onClick={handleApplyPendingChanges}
+                      disabled={!pmReason}
+                    >
+                      Apply & Log Changes
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* 10. Audit Logs Content matching mockup exactly */}
         {activeTab === 'audit' && (() => {
