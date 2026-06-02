@@ -1068,6 +1068,15 @@ const PharmacyDashboard = () => {
             z-index: 1999 !important;
             animation: fadeIn 0.2s ease-out !important;
           }
+
+          /* Safe-area spacing overrides for bottom sidebar profile on mobile */
+          .sidebar-profile-card {
+            padding-bottom: calc(16px + env(safe-area-inset-bottom, 24px)) !important;
+            margin-bottom: 0 !important;
+          }
+          .sidebar-profile-popover {
+            bottom: calc(80px + env(safe-area-inset-bottom, 24px)) !important;
+          }
         }
 
         /* ----- PHARMACY DASHBOARD RESPONSIVE SPLIT LAYOUT ----- */
@@ -1156,7 +1165,7 @@ const PharmacyDashboard = () => {
         {/* Bottom Profile Popover Dropdown */}
         {showProfileMenu && (
           <div 
-            className="glass-card" 
+            className="glass-card sidebar-profile-popover" 
             style={{ 
               position: 'absolute', 
               bottom: '80px', 

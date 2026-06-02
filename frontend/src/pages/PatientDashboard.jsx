@@ -222,6 +222,13 @@ const PatientDashboard = () => {
 
   return (
     <>
+      <style>{`
+        @media (max-width: 1024px) {
+          .sidebar nav {
+            padding-bottom: calc(16px + env(safe-area-inset-bottom, 24px)) !important;
+          }
+        }
+      `}</style>
       <div className={"sidebar " + (mobileSidebarOpen ? "mobile-open" : "")} data-lenis-prevent>
         <div className="sidebar-logo">
           <i data-lucide="heart-pulse"></i><span>MediCore</span>

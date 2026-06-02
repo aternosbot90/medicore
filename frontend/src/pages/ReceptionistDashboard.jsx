@@ -715,6 +715,14 @@ const ReceptionistDashboard = () => {
             margin-left: 0 !important;
             padding: 16px !important;
           }
+
+          /* Safe-area spacing overrides for bottom sidebar profile on mobile */
+          .sidebar-user {
+            margin-bottom: calc(16px + env(safe-area-inset-bottom, 24px)) !important;
+          }
+          .sidebar-profile-popover {
+            bottom: calc(72px + env(safe-area-inset-bottom, 24px)) !important;
+          }
         }
       `}</style>
 
@@ -799,7 +807,7 @@ const ReceptionistDashboard = () => {
 
           {showProfileMenu && (
             <div 
-              className="glass-card" 
+              className="glass-card sidebar-profile-popover" 
               style={{ 
                 position: 'absolute', 
                 bottom: '72px', 

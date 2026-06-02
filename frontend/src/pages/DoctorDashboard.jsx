@@ -1862,6 +1862,15 @@ I have scanned the medical reference databases, but couldn't find a direct match
             grid-column: span 2 !important;
             justify-content: center !important;
           }
+
+          /* Safe-area spacing overrides for bottom sidebar profile on mobile */
+          .sidebar-profile-card {
+            padding-bottom: calc(16px + env(safe-area-inset-bottom, 24px)) !important;
+            margin-bottom: 0 !important;
+          }
+          .sidebar-profile-popover {
+            bottom: calc(80px + env(safe-area-inset-bottom, 24px)) !important;
+          }
         }
       `}</style>
 
@@ -1950,7 +1959,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
         {/* Bottom Doctor Profile Card Popover */}
         {showProfileMenu && (
           <div 
-            className="glass-card" 
+            className="glass-card sidebar-profile-popover" 
             style={{ 
               position: 'absolute', 
               bottom: '80px', 

@@ -2434,6 +2434,14 @@ const AdminDashboard = () => {
           .admin-dashboard-content {
             padding: 24px 20px !important;
           }
+
+          /* Safe-area spacing overrides for bottom sidebar profile on mobile */
+          .sidebar-profile {
+            padding-bottom: calc(16px + env(safe-area-inset-bottom, 24px)) !important;
+          }
+          .profile-dropmenu-box {
+            bottom: calc(72px + env(safe-area-inset-bottom, 24px)) !important;
+          }
         }
 
         /* Mobile specific visual fixes for 640px screens */
