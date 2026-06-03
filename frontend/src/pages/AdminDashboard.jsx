@@ -2432,22 +2432,27 @@ const AdminDashboard = () => {
             gap: 24px !important;
           }
           .admin-dashboard-content {
-            padding: 24px 20px !important;
+            padding: 24px 20px calc(100px + env(safe-area-inset-bottom, 24px)) !important;
           }
 
           /* Safe-area spacing overrides for bottom sidebar profile on mobile */
+          .admin-sidebar {
+            height: 100% !important;
+            height: 100dvh !important;
+            padding-bottom: calc(32px + env(safe-area-inset-bottom, 32px)) !important;
+          }
           .sidebar-profile {
-            padding-bottom: calc(16px + env(safe-area-inset-bottom, 24px)) !important;
+            padding-bottom: 16px !important;
           }
           .profile-dropmenu-box {
-            bottom: calc(72px + env(safe-area-inset-bottom, 24px)) !important;
+            bottom: calc(72px + 32px + env(safe-area-inset-bottom, 32px)) !important;
           }
         }
 
         /* Mobile specific visual fixes for 640px screens */
         @media (max-width: 640px) {
           .admin-dashboard-content {
-            padding: 16px 12px !important;
+            padding: 16px 12px calc(100px + env(safe-area-inset-bottom, 24px)) !important;
           }
           .admin-top-header {
             padding: 0 12px !important;

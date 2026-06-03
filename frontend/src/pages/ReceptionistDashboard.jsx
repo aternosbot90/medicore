@@ -713,15 +713,20 @@ const ReceptionistDashboard = () => {
           }
           .main-content {
             margin-left: 0 !important;
-            padding: 16px !important;
+            padding: 16px 16px calc(100px + env(safe-area-inset-bottom, 24px)) !important;
           }
 
           /* Safe-area spacing overrides for bottom sidebar profile on mobile */
+          .sidebar {
+            height: 100% !important;
+            height: 100dvh !important;
+            padding-bottom: calc(32px + env(safe-area-inset-bottom, 32px)) !important;
+          }
           .sidebar-user {
-            margin-bottom: calc(16px + env(safe-area-inset-bottom, 24px)) !important;
+            margin-bottom: 0 !important;
           }
           .sidebar-profile-popover {
-            bottom: calc(72px + env(safe-area-inset-bottom, 24px)) !important;
+            bottom: calc(72px + 32px + env(safe-area-inset-bottom, 32px)) !important;
           }
         }
       `}</style>

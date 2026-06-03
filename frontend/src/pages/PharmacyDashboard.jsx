@@ -1070,12 +1070,17 @@ const PharmacyDashboard = () => {
           }
 
           /* Safe-area spacing overrides for bottom sidebar profile on mobile */
+          .sidebar {
+            height: 100% !important;
+            height: 100dvh !important;
+            padding-bottom: calc(32px + env(safe-area-inset-bottom, 32px)) !important;
+          }
           .sidebar-profile-card {
-            padding-bottom: calc(16px + env(safe-area-inset-bottom, 24px)) !important;
+            padding-bottom: 16px !important;
             margin-bottom: 0 !important;
           }
           .sidebar-profile-popover {
-            bottom: calc(80px + env(safe-area-inset-bottom, 24px)) !important;
+            bottom: calc(80px + 32px + env(safe-area-inset-bottom, 32px)) !important;
           }
         }
 

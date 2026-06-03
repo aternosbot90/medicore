@@ -1820,7 +1820,7 @@ I have scanned the medical reference databases, but couldn't find a direct match
           }
           .main-content {
             margin-left: 0 !important;
-            padding: 16px !important;
+            padding: 16px 16px calc(100px + env(safe-area-inset-bottom, 24px)) !important;
           }
           .mobile-stack {
             grid-template-columns: 1fr !important;
@@ -1864,12 +1864,17 @@ I have scanned the medical reference databases, but couldn't find a direct match
           }
 
           /* Safe-area spacing overrides for bottom sidebar profile on mobile */
+          .sidebar {
+            height: 100% !important;
+            height: 100dvh !important;
+            padding-bottom: calc(32px + env(safe-area-inset-bottom, 32px)) !important;
+          }
           .sidebar-profile-card {
-            padding-bottom: calc(16px + env(safe-area-inset-bottom, 24px)) !important;
+            padding-bottom: 16px !important;
             margin-bottom: 0 !important;
           }
           .sidebar-profile-popover {
-            bottom: calc(80px + env(safe-area-inset-bottom, 24px)) !important;
+            bottom: calc(80px + 32px + env(safe-area-inset-bottom, 32px)) !important;
           }
         }
       `}</style>
