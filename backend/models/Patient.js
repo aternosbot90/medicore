@@ -13,4 +13,7 @@ const patientSchema = new mongoose.Schema({
   medicalHistory: [{ type: String }],
 }, { timestamps: true });
 
+// Compound index to speed up patient lookup on login by contact and tenantId
+patientSchema.index({ tenantId: 1, contact: 1 });
+
 module.exports = mongoose.model('Patient', patientSchema);

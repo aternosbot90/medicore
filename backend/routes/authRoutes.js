@@ -6,6 +6,11 @@ const Patient = require('../models/Patient');
 const tenantMiddleware = require('../middleware/tenantMiddleware');
 const router = express.Router();
 
+// Lightweight ping endpoint to wake up Render backend from cold starts
+router.get('/ping', (req, res) => {
+  res.json({ status: 'ok', message: 'MediCore Backend is awake' });
+});
+
 router.post('/login', tenantMiddleware, async (req, res) => {
   const { staff_id, password } = req.body;
 

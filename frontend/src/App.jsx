@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
@@ -6,6 +7,7 @@ import ReceptionistDashboard from './pages/ReceptionistDashboard';
 import PatientDashboard from './pages/PatientDashboard';
 import LabDashboard from './pages/LabDashboard';
 import PharmacyDashboard from './pages/PharmacyDashboard';
+import api from './utils/api';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -33,6 +35,18 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 };
 
 function App() {
+  useEffect(() => {
+    // Proactively ping the Render backend to wake it up from potential cold start
+    const warmUpBackend = async () => {
+      try {
+        await api.get('/auth/ping');
+      } catch (error) {
+        // Silently ignore ping errors since it is only a wake-up ping
+      }
+    };
+    warmUpBackend();
+  }, []);
+
   return (
     <Router>
       <Routes>
