@@ -12,7 +12,7 @@ const labInventorySchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Pre-save middleware to automatically calculate item status
-labInventorySchema.pre('save', function(next) {
+labInventorySchema.pre('save', function() {
   if (this.stock === 0) {
     this.status = 'Out of Stock';
   } else if (this.stock <= this.threshold) {
@@ -20,7 +20,6 @@ labInventorySchema.pre('save', function(next) {
   } else {
     this.status = 'Healthy';
   }
-  next();
 });
 
 module.exports = mongoose.model('LabInventory', labInventorySchema);

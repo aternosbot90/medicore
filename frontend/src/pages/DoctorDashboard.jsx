@@ -1948,12 +1948,42 @@ I have scanned the medical reference databases, but couldn't find a direct match
           opacity: 1 !important;
         }
 
+        .mobile-backdrop {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          background: rgba(15, 23, 42, 0.4) !important;
+          backdrop-filter: blur(2px) !important;
+          z-index: 1999 !important;
+          animation: fadeIn 0.2s ease-out !important;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
         @media (max-width: 1024px) {
           .sidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            width: 240px !important;
+            transform: translateX(-100%) !important;
+            transition: transform 0.3s ease !important;
             z-index: 2000 !important;
+            height: 100% !important;
+            height: 100dvh !important;
+            padding-bottom: calc(32px + env(safe-area-inset-bottom, 32px)) !important;
           }
           .sidebar.mobile-open {
-            z-index: 2010 !important;
+            transform: translateX(0) !important;
+          }
+          .mobile-menu-toggle {
+            display: flex !important;
           }
           .top-nav {
             margin-left: 0 !important;

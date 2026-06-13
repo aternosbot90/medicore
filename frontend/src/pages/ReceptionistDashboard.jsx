@@ -416,12 +416,9 @@ const ReceptionistDashboard = () => {
 
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (window.lucide) {
-        window.lucide.createIcons();
-      }
-    }, 50);
-    return () => clearTimeout(timer);
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
   });
 
   // Freeze background page scroll when Details Modal Dialog is active
@@ -841,12 +838,42 @@ const ReceptionistDashboard = () => {
           }
         }
 
+        .mobile-backdrop {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          background: rgba(15, 23, 42, 0.4) !important;
+          backdrop-filter: blur(2px) !important;
+          z-index: 1999 !important;
+          animation: fadeIn 0.2s ease-out !important;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
         @media (max-width: 1024px) {
           .sidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            width: 240px !important;
+            transform: translateX(-100%) !important;
+            transition: transform 0.3s ease !important;
             z-index: 2000 !important;
+            height: 100% !important;
+            height: 100dvh !important;
+            padding-bottom: calc(32px + env(safe-area-inset-bottom, 32px)) !important;
           }
           .sidebar.mobile-open {
-            z-index: 2010 !important;
+            transform: translateX(0) !important;
+          }
+          .mobile-menu-toggle {
+            display: flex !important;
           }
           .top-nav {
             margin-left: 0 !important;
@@ -858,16 +885,97 @@ const ReceptionistDashboard = () => {
           }
 
           /* Safe-area spacing overrides for bottom sidebar profile on mobile */
-          .sidebar {
-            height: 100% !important;
-            height: 100dvh !important;
-            padding-bottom: calc(32px + env(safe-area-inset-bottom, 32px)) !important;
-          }
           .sidebar-user {
             margin-bottom: 0 !important;
           }
           .sidebar-profile-popover {
             bottom: calc(72px + 32px + env(safe-area-inset-bottom, 32px)) !important;
+          }
+        }
+
+        /* Dynamic Responsive Typography Overrides */
+        @media (max-width: 1024px) {
+          h1, [style*="fontSize: '28px'"], [style*="fontSize: '24px'"], [style*="fontSize:28px"], [style*="fontSize:24px"] {
+            font-size: 20px !important;
+          }
+          h2 {
+            font-size: 17px !important;
+          }
+          h3, [style*="fontSize: '18px'"], [style*="fontSize: '17px'"], [style*="fontSize:18px"], [style*="fontSize:17px"] {
+            font-size: 15px !important;
+          }
+          .modern-kpi-val, .kpi-value-custom {
+            font-size: 18px !important;
+          }
+          .modern-kpi-lbl, .kpi-title-custom {
+            font-size: 10.5px !important;
+          }
+          .premium-table th, .elite-table th, .elite-table-custom th {
+            font-size: 10px !important;
+            padding: 10px 12px !important;
+          }
+          .premium-table td, .elite-table td, .elite-table-custom td {
+            font-size: 12px !important;
+            padding: 10px 12px !important;
+          }
+          .nav-link {
+            font-size: 12.5px !important;
+            padding: 10px 16px !important;
+          }
+          .search-input, .form-control {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+          }
+          .btn {
+            font-size: 12px !important;
+            padding: 8px 16px !important;
+          }
+          body, p, span, div, label {
+            font-size: 12.5px !important;
+          }
+          .avail-info b {
+            font-size: 12px !important;
+          }
+          .avail-info p {
+            font-size: 10.5px !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          h1, [style*="fontSize: '28px'"], [style*="fontSize: '24px'"], [style*="fontSize:28px"], [style*="fontSize:24px"] {
+            font-size: 17px !important;
+          }
+          h3, [style*="fontSize: '18px'"], [style*="fontSize: '17px'"], [style*="fontSize:18px"], [style*="fontSize:17px"] {
+            font-size: 13.5px !important;
+          }
+          .modern-kpi-val, .kpi-value-custom {
+            font-size: 16px !important;
+          }
+          .modern-kpi-lbl, .kpi-title-custom {
+            font-size: 9.5px !important;
+          }
+          .premium-table th, .elite-table th, .elite-table-custom th {
+            font-size: 9px !important;
+            padding: 8px 10px !important;
+          }
+          .premium-table td, .elite-table td, .elite-table-custom td {
+            font-size: 11px !important;
+            padding: 8px 10px !important;
+          }
+          .nav-link {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+          }
+          .search-input, .form-control {
+            font-size: 11.5px !important;
+            padding: 6px 10px !important;
+          }
+          .btn {
+            font-size: 11px !important;
+            padding: 6px 12px !important;
+          }
+          body, p, span, div, label {
+            font-size: 11.5px !important;
           }
         }
       `}</style>
