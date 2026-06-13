@@ -197,6 +197,41 @@ router.get('/role-coverage', verifyToken, async (req, res) => {
     if (!coverage) {
       return res.json({});
     }
+
+    // Clean up expired coverages dynamically on get
+    let state = coverage.state || {};
+    let changed = false;
+    const now = new Date();
+
+    Object.keys(state).forEach(staffName => {
+      const staffPerms = state[staffName] || {};
+      let permsChanged = false;
+      Object.keys(staffPerms).forEach(permId => {
+        const perm = staffPerms[permId];
+        if (perm && perm.on && perm.type === 'temp' && perm.expiresAt) {
+          const expireDate = new Date(perm.expiresAt);
+          if (expireDate <= now) {
+            delete staffPerms[permId];
+            permsChanged = true;
+            changed = true;
+          }
+        }
+      });
+      if (permsChanged) {
+        if (Object.keys(staffPerms).length === 0) {
+          delete state[staffName];
+        } else {
+          state[staffName] = staffPerms;
+        }
+      }
+    });
+
+    if (changed) {
+      coverage.state = state;
+      coverage.markModified('state');
+      await coverage.save();
+    }
+
     res.json(coverage.state || {});
   } catch (error) {
     res.status(500).json({ error: error.message });

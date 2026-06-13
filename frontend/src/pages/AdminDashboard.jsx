@@ -57,6 +57,31 @@ const pmModules = [
   { id: 'nu-dispense',   name: 'Medicine dispensing (assist)',desc: 'Assist pharmacist in dispensing',     group: 'Nurse — ops', coreFor: [] },
 ];
 
+const AdminCoverageCountdown = ({ expiresAt }) => {
+  const [timeLeft, setTimeLeft] = React.useState('');
+
+  React.useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const expires = new Date(expiresAt);
+      const diff = expires - now;
+      if (diff <= 0) {
+        setTimeLeft('Expired');
+      } else {
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff / (1000 * 60)) % 60);
+        const seconds = Math.floor((diff / 1000) % 60);
+        setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} left`);
+      }
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  return <span style={{ marginLeft: '6px', opacity: 0.85, fontWeight: 800 }}>({timeLeft})</span>;
+};
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -5124,10 +5149,26 @@ const AdminDashboard = () => {
               }
 
               if (change.on) {
+                let expiresAt = null;
+                if (change.type === 'temp') {
+                  const now = new Date();
+                  if (change.expiresIn === 'Today midnight') {
+                    const midnight = new Date();
+                    midnight.setHours(23, 59, 59, 999);
+                    expiresAt = midnight.toISOString();
+                  } else {
+                    const days = parseInt(change.expiresIn) || 1;
+                    const targetDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+                    expiresAt = targetDate.toISOString();
+                  }
+                }
+
                 nextState[selectedStaff.name][permId] = {
                   on: true,
                   type: change.type,
                   expiresIn: change.type === 'temp' ? change.expiresIn : null,
+                  expiresAt: expiresAt,
+                  grantedAt: new Date().toISOString(),
                   note: pmReason
                 };
               } else {
@@ -5292,7 +5333,14 @@ const AdminDashboard = () => {
                                         )}
                                         {(!isCore && pendingChange === undefined && activeOverride?.on) && (
                                           <span className={`pm-badge ${activeOverride.type}`}>
-                                            {activeOverride.type === 'temp' ? `Temp cover (${activeOverride.expiresIn})` : 'Perm supervisor'}
+                                            {activeOverride.type === 'temp' ? (
+                                              <>
+                                                Temp cover ({activeOverride.expiresIn})
+                                                {activeOverride.expiresAt && <AdminCoverageCountdown expiresAt={activeOverride.expiresAt} />}
+                                              </>
+                                            ) : (
+                                              'Perm supervisor'
+                                            )}
                                           </span>
                                         )}
                                       </div>

@@ -21,6 +21,147 @@ if (typeof window !== 'undefined') {
   };
 }
 
+const CoverageTimerBanner = ({ coverageState, setCoverageState }) => {
+  const [timeLeft, setTimeLeft] = useState({});
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const newTimeLeft = {};
+      const now = new Date();
+      let expiredAny = false;
+
+      Object.keys(coverageState || {}).forEach(k => {
+        const perm = coverageState[k];
+        if (perm && perm.on && perm.type === 'temp' && perm.expiresAt) {
+          const expires = new Date(perm.expiresAt);
+          const diff = expires - now;
+          if (diff > 0) {
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff / (1000 * 60)) % 60);
+            const seconds = Math.floor((diff / 1000) % 60);
+            newTimeLeft[k] = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+          } else {
+            expiredAny = true;
+          }
+        }
+      });
+
+      setTimeLeft(newTimeLeft);
+
+      if (expiredAny && setCoverageState) {
+        const updated = {};
+        Object.keys(coverageState).forEach(k => {
+          const perm = coverageState[k];
+          if (perm && perm.on && perm.type === 'temp' && perm.expiresAt) {
+            if (new Date(perm.expiresAt) > now) {
+              updated[k] = perm;
+            }
+          } else {
+            updated[k] = perm;
+          }
+        });
+        setCoverageState(updated);
+      }
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [coverageState, setCoverageState]);
+
+  const activeTempPerms = Object.keys(coverageState || {}).filter(k => {
+    const perm = coverageState[k];
+    return perm && perm.on && perm.type === 'temp' && perm.expiresAt && new Date(perm.expiresAt) > new Date();
+  });
+
+  if (activeTempPerms.length === 0) return null;
+
+  const getModuleName = (id) => {
+    const names = {
+      'doc-consult': 'Doctor Consultation',
+      'doc-history': 'Patient Medical History',
+      'dr-stockview': 'Pharmacy Stock View',
+      'rc-register': 'Patient Registration',
+      'rc-appt': 'Appointment Booking',
+      'rc-queue': 'OPD Token Queue',
+      'rc-upload': 'Lab Report Upload',
+      'rc-billing': 'Billing & Receipts',
+      'rc-reorder': 'Pharmacy Stock Reorder',
+      'rc-labprint': 'Lab Slip Printing',
+      'lt-queue': 'Test Order Queue',
+      'lt-upload': 'Report Upload',
+      'lt-reagents': 'Lab Reagents Inventory',
+      'lt-dispatch': 'Report Dispatch',
+      'lt-extlab': 'External Lab Coordination',
+      'ph-queue': 'Prescription Queue',
+      'ph-dispense': 'Medicine Dispensing',
+      'ph-stock': 'Stock Inventory',
+      'ph-reorder': 'Reorder Management',
+      'ph-billing': 'Prescription Billing',
+      'ph-controlled': 'Controlled Drugs Log',
+      'nu-vitals': 'Patient Vitals Entry',
+      'nu-ward': 'Ward Round Notes',
+      'nu-labassist': 'Lab Sample Assist',
+      'nu-dispense': 'Medicine Dispensing Assist'
+    };
+    return names[id] || id;
+  };
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+      border: '1px solid #FCD34D',
+      borderRadius: '12px',
+      padding: '14px 20px',
+      marginBottom: '24px',
+      boxShadow: '0 4px 12px rgba(251, 191, 36, 0.08)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '10px',
+      animation: 'slideUp 0.3s ease-out'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span style={{ fontSize: '13px', fontWeight: 800, color: '#92400E' }}>
+          Temporary Assigned Role Coverage Active
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+        {activeTempPerms.map(k => (
+          <div key={k} style={{
+            background: '#FFFFFF',
+            border: '1px solid #FDE68A',
+            borderRadius: '8px',
+            padding: '6px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '12.5px',
+            fontWeight: 700,
+            color: '#78350F'
+          }}>
+            <span>{getModuleName(k)}</span>
+            <span style={{
+              background: '#FEF3C7',
+              color: '#B45309',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontFamily: 'monospace',
+              fontWeight: 800,
+              fontSize: '12px',
+              border: '1px solid #FCD34D'
+            }}>
+              {timeLeft[k] || '00:00:00'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const PharmacyDashboard = () => {
   const [activeTab, setActiveTab] = useState('dash');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -1286,6 +1427,7 @@ const PharmacyDashboard = () => {
 
       {/* Main Content Area */}
       <div className="main-content">
+        <CoverageTimerBanner coverageState={coverageState} setCoverageState={setCoverageState} />
         
         {successMessage && (
           <div style={{ color: '#15803D', background: '#F0FDF4', border: '1px solid #DCFCE7', padding: '12px 20px', borderRadius: '12px', marginBottom: '24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
